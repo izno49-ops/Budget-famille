@@ -406,38 +406,44 @@
         }
 
         function generateMonthlyReport() {
-            const [y, m] = document.getElementById('report-month-picker').value.split('-').map(Number);
-            const filtered = transactions.filter(t => { 
-                const d = new Date(t.iso); 
-                return d.getMonth() === (m-1) && d.getFullYear() === y; 
-            });
-            
-            let bal = 0, inc = 0, exp = 0;
-            filtered.forEach(t => {
-                bal += t.amount;
-                if(t.amount > 0) inc += t.amount;
-                else exp += Math.abs(t.amount);
-            });
-            
-            document.getElementById('report-content').innerHTML = `
-                <div class="p-6 bg-indigo-600 rounded-3xl text-white text-center">
-                    <p class="text-4xl font-black">${bal.toLocaleString()}€</p>
-                    <p class="text-xs uppercase opacity-70">Solde Mensuel</p>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="p-4 bg-emerald-50 rounded-2xl text-center">
-                        <p class="text-xs text-emerald-600 font-bold uppercase">Revenus</p>
-                        <p class="text-2xl font-black text-emerald-700">${inc.toLocaleString()}€</p>
-                    </div>
-                    <div class="p-4 bg-rose-50 rounded-2xl text-center">
-                        <p class="text-xs text-rose-600 font-bold uppercase">Dépenses</p>
-                        <p class="text-2xl font-black text-rose-700">${exp.toLocaleString()}€</p>
-                    </div>
-                </div>
-                <div class="text-sm text-slate-600">
-                    <p class="font-bold mb-2">📊 ${filtered.length} transaction(s) ce mois</p>
-                </div>`;
-        }
+    const [y, m] = document.getElementById('report-month-picker').value.split('-').map(Number);
+    
+    // Filtrer les transactions du mois sélectionné
+    const filtered = transactions.filter(t => { 
+        const d = new Date(t.iso);
+        // m est déjà entre 1 et 12, donc on compare avec getMonth() + 1
+        return (d.getMonth() + 1) === m && d.getFullYear() === y; 
+    });
+    
+    let bal = 0, inc = 0, exp = 0;
+    filtered.forEach(t => {
+        bal += t.amount;
+        if(t.amount > 0) inc += t.amount;
+        else exp += Math.abs(t.amount);
+    });
+    
+    // Afficher le nombre de transactions filtrées pour déboguer
+    console.log(`Rapport pour ${m}/${y}: ${filtered.length} transactions trouvées`);
+    
+    document.getElementById('report-content').innerHTML = `
+        <div class="p-6 bg-indigo-600 rounded-3xl text-white text-center">
+            <p class="text-4xl font-black">${bal.toLocaleString()}€</p>
+            <p class="text-xs uppercase opacity-70">Solde Mensuel</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="p-4 bg-emerald-50 rounded-2xl text-center">
+                <p class="text-xs text-emerald-600 font-bold uppercase">Revenus</p>
+                <p class="text-2xl font-black text-emerald-700">${inc.toLocaleString()}€</p>
+            </div>
+            <div class="p-4 bg-rose-50 rounded-2xl text-center">
+                <p class="text-xs text-rose-600 font-bold uppercase">Dépenses</p>
+                <p class="text-2xl font-black text-rose-700">${exp.toLocaleString()}€</p>
+            </div>
+        </div>
+        <div class="text-sm text-slate-600">
+            <p class="font-bold mb-2">📊 ${filtered.length} transaction(s) ce mois</p>
+        </div>`;
+}
 
         setType('expense');
     </script>
