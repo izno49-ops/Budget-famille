@@ -1,5 +1,5 @@
 // 1. Changez ce numéro (v1, v2, v3...) à chaque fois que vous modifiez index.html
-const CACHE_NAME = 'budget-sync-v6'; 
+const CACHE_NAME = 'budget-sync-v7'; 
 
 const ASSETS_TO_CACHE = [
   './',
