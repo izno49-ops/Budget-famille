@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BudgetSync">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/781/781760.png">
+    <link rel="manifest" href="manifest.json">
+    
+    <title>Budget Sync Pro - App</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-database-compat.js"></script>
+
+    <style>
+        input { -webkit-appearance: none; border-radius: 0; }
+        .tab-active { background-color: white; color: #4f46e5; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        #auth-screen, #report-modal { 
+            position: fixed; inset: 0; background: #f1f5f9; 
+            z-index: 10000; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; 
+        }
+        .pin-field { -webkit-text-security: disc; text-security: disc; }
+        /* Safe Area pour iPhone avec encoche */
+        body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body class="bg-[#f8fafc] min-h-screen">
+
+    <div id="auth-screen">
+        <div class="p-8 bg-white rounded-[2.5rem] shadow-2xl text-center max-w-xs w-full mx-4 border">
+            <div class="text-4xl mb-4">🏦</div>
+            <h2 class="text-2xl font-black mb-2 text-slate-800">Budget Sync</h2>
+            <p class="text-slate-400 text-sm mb-8">Code PIN requis</p>
+            <input type="text" id="pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••" 
+                   class="pin-field text-center text-4xl tracking-widest w-full p-5 bg-slate-50 rounded-3xl mb-6 outline-none border-2 focus:border-indigo-500">
+            <button onclick="checkPin()" class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black shadow-lg">OUVRIR</button>
+        </div>
+    </div>
+
+    <div id="app-content" style="display:none;">
+        <div class="max-w-6xl mx-auto p-4 md:p-8">
+            
+            <header class="bg-white rounded-[2rem] shadow-sm border p-4 mb-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold">B</div>
+                        <div>
+                            <span id="current-user-display" class="font-black text-slate-800 block leading-none">...</span>
+                            <button onclick="location.reload()" class="text-[10px] text-slate-400 uppercase font-bold">Changer ↻</button>
+                        </div>
+                    </div>
+                    <button onclick="openReportModal()" class="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase">Rapport</button>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white p-5 rounded-[2rem] shadow-sm border text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase">Solde</p>
+                    <h3 class="text-2xl font-black" id="totalBalance">0.00 €</h3>
+                </div>
+                <div class="bg-white p-5 rounded-[2rem] shadow-sm border border-l-4 border-l-emerald-500 text-center">
+                    <p class="text-[10px] font-black text-emerald-500 uppercase">Entrées</p>
+                    <h3 class="text-2xl font-black" id="totalIncomes">0.00 €</h3>
+                </div>
+                <div class="bg-white p-5 rounded-[2rem] shadow-sm border border-l-4 border-l-rose-500 text-center">
+                    <p class="text-[10px] font-black text-rose-500 uppercase">Sorties</p>
+                    <h3 class="text-2xl font-black" id="totalExpenses">0.00 €</h3>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="space-y-6">
+                    <div class="bg-white rounded-[2rem] shadow-xl border overflow-hidden">
+                        <div class="flex p-2 bg-slate-50 gap-2">
+                            <button onclick="setType('expense')" id="btnExp" class="flex-1 py-3 rounded-xl font-black text-xs uppercase tab-active">Dépense</button>
+                            <button onclick="setType('income')" id="btnInc" class="flex-1 py-3 rounded-xl font-black text-xs uppercase text-slate-400">Revenu</button>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <input type="hidden" id="edit-id">
+                            <input type="text" id="desc" placeholder="Désignation" class="w-full p-4 bg-slate-50 rounded-2xl outline-none">
+                            <input type="number" step="0.01" id="amount" placeholder="0.00 €" class="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-lg">
+                            <select id="category" class="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-600"></select>
+                            <button onclick="saveTransaction()" id="submitBtn" class="w-full py-4 rounded-2xl text-white font-black shadow-lg bg-indigo-600">VALIDER</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-[2rem] shadow-xl border overflow-hidden">
+                        <div class="p-4 border-b bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">Opérations récentes</div>
+                        <div class="overflow-y-auto max-h-[500px]"><table class="w-full"><tbody id="transactionList" class="divide-y divide-slate-50"></tbody></table></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="report-modal" style="display:none;">
+        <div class="bg-white p-6 rounded-[2.5rem] shadow-2xl max-w-lg w-full mx-4">
+            <h2 class="text-2xl font-black mb-4">Analyse</h2>
+            <input type="month" id="report-month-picker" onchange="generateMonthlyReport()" class="w-full p-4 bg-slate-100 rounded-2xl mb-4 font-bold">
+            <div id="report-content" class="space-y-4 overflow-y-auto max-h-[50vh]"></div>
+            <button onclick="closeReport()" class="w-full mt-6 py-4 bg-slate-100 rounded-2xl font-bold">Fermer</button>
+        </div>
+    </div>
+
+    <script>
+        // LOGIQUE FIREBASE
+        const UTILISATEURS_PIN = { "1234": "Papa", "5678": "Maman", "1111": "Enfant 1", "2222": "Enfant 2", "0000": "Invité" };
+        const firebaseConfig = {
+            apiKey: "AIzaSyDxBlFg_z1gWM-O9lHH0UdqLmqRyno7Eys",
+            databaseURL: "https://budget-20988-default-rtdb.europe-west1.firebasedatabase.app/",
+            projectId: "budget-20988",
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        let transactions = [], currentUser = "", currentType = "expense";
+        const cats = { expense: ["Alimentation", "Loisirs", "Logement", "Transport", "Santé", "Abonnements", "Autre"], income: ["Salaire", "Indemnité", "Cadeau", "Autre"] };
+
+        // Enregistrement du Service Worker pour PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+
+        function checkPin() {
+            const val = document.getElementById('pin-input').value;
+            const user = UTILISATEURS_PIN[val];
+            if(user) {
+                currentUser = user;
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('app-content').style.display = 'block';
+                document.getElementById('current-user-display').innerText = user;
+                initSync();
+            } else { alert("Code erroné"); }
+        }
+
+        function initSync() {
+            db.ref('data').on('value', snap => {
+                transactions = snap.val() ? snap.val().transactions || [] : [];
+                updateUI();
+            });
+        }
+
+        function saveTransaction() {
+            if(currentUser === "Invité") return;
+            const d = document.getElementById('desc').value, a = parseFloat(document.getElementById('amount').value);
+            if(!d || isNaN(a)) return;
+            const tx = {
+                id: Date.now(),
+                date: new Date().toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
+                fullDate: new Date().toISOString(),
+                description: d,
+                amount: currentType === 'expense' ? -Math.abs(a) : Math.abs(a),
+                category: document.getElementById('category').value,
+                author: currentUser
+            };
+            transactions.unshift(tx);
+            db.ref('data').set({ transactions }).then(() => {
+                document.getElementById('desc').value = ""; document.getElementById('amount').value = "";
+            });
+        }
+
+        function updateUI() {
+            const list = document.getElementById('transactionList');
+            let inc = 0, exp = 0; list.innerHTML = "";
+            transactions.forEach(t => {
+                if(t.amount > 0) inc += t.amount; else exp += Math.abs(t.amount);
+                list.innerHTML += `
+                    <tr class="text-sm">
+                        <td class="p-4">
+                            <p class="font-bold text-slate-800">${t.description}</p>
+                            <p class="text-[9px] text-indigo-400 font-bold uppercase">${t.author} • ${t.date}</p>
+                        </td>
+                        <td class="p-4 text-right font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">
+                            ${t.amount.toLocaleString()}€
+                        </td>
+                    </tr>`;
+            });
+            document.getElementById('totalBalance').innerText = (inc - exp).toLocaleString() + " €";
+            document.getElementById('totalIncomes').innerText = inc.toLocaleString() + " €";
+            document.getElementById('totalExpenses').innerText = exp.toLocaleString() + " €";
+        }
+
+        function setType(t) {
+            currentType = t;
+            document.getElementById('category').innerHTML = cats[t].map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('btnExp').className = t === 'expense' ? 'flex-1 py-3 rounded-xl font-black text-xs uppercase tab-active' : 'flex-1 py-3 rounded-xl font-black text-xs uppercase text-slate-400';
+            document.getElementById('btnInc').className = t === 'income' ? 'flex-1 py-3 rounded-xl font-black text-xs uppercase tab-active' : 'flex-1 py-3 rounded-xl font-black text-xs uppercase text-slate-400';
+        }
+
+        function openReportModal() { document.getElementById('report-month-picker').value = new Date().toISOString().substring(0, 7); generateMonthlyReport(); document.getElementById('report-modal').style.display = 'flex'; }
+        function closeReport() { document.getElementById('report-modal').style.display = 'none'; }
+        function generateMonthlyReport() {
+            const picker = document.getElementById('report-month-picker').value;
+            const [y, m] = picker.split('-').map(Number);
+            const filtered = transactions.filter(t => {
+                const d = new Date(t.fullDate);
+                return d.getMonth() === (m-1) && d.getFullYear() === y;
+            });
+            let inc = 0, exp = 0;
+            filtered.forEach(t => { if(t.amount > 0) inc += t.amount; else exp += Math.abs(t.amount); });
+            document.getElementById('report-content').innerHTML = `
+                <div class="${(inc-exp)>=0?'bg-emerald-600':'bg-rose-600'} p-6 rounded-3xl text-white text-center">
+                    <p class="text-4xl font-black">${(inc-exp).toLocaleString()}€</p>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-2xl text-center">
+                    <p class="text-xs font-bold text-slate-400 uppercase">Top Dépense</p>
+                    <p class="font-black text-rose-500">${filtered.length ? Math.min(...filtered.map(t=>t.amount)) : 0}€</p>
+                </div>`;
+        }
+        setType('expense');
+    </script>
+</body>
+</html>
