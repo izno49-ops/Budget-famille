@@ -3,170 +3,302 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <link rel="manifest" href="manifest.json">
-    <title>Budget Sync</title>
     
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BudgetSync">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/781/781760.png">
+    <link rel="manifest" href="manifest.json">
+    
+    <title>Budget Sync - Famille</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-auth-compat.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
-        .tab-active { border-bottom: 3px solid #4f46e5; color: #4f46e5; background: white; }
-        #auth-screen { position: fixed; inset: 0; background: #f1f5f9; z-index: 10000; display: flex; justify-content: center; align-items: center; }
+        input, select { -webkit-appearance: none; border-radius: 0; }
+        .tab-active { border-bottom: 3px solid #4f46e5; color: #4f46e5; }
+        #auth-screen, #report-modal { 
+            position: fixed; inset: 0; background: #f1f5f9; 
+            z-index: 10000; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; 
+        }
+        .user-badge { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); }
     </style>
 </head>
-<body class="bg-[#f8fafc]">
+<body class="bg-[#f8fafc] min-h-screen">
 
     <div id="auth-screen">
-        <div class="p-8 bg-white rounded-[2.5rem] shadow-2xl text-center max-w-sm w-full mx-4">
-            <h2 class="text-2xl font-black mb-6">Budget Famille</h2>
-            <div class="space-y-3 mb-6">
-                <input type="email" id="login-email" placeholder="Email" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 focus:border-indigo-500">
-                <input type="password" id="login-password" placeholder="Mot de passe" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 focus:border-indigo-500">
+        <div class="p-8 bg-white rounded-[2.5rem] shadow-2xl text-center max-w-sm w-full mx-4 border border-slate-100">
+            <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl">🔐</div>
+            <h2 class="text-2xl font-black mb-2 text-slate-800">Budget Famille</h2>
+            <p class="text-slate-400 text-sm mb-8">Identification par email</p>
+            
+            <div class="space-y-3 mb-6 text-left">
+                <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Email</label>
+                <input type="email" id="email-input" placeholder="ex: papa@famille.com" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 transition-all">
+                <label class="text-[10px] font-bold text-slate-400 uppercase ml-2">Mot de passe</label>
+                <input type="password" id="password-input" placeholder="••••••••" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 transition-all">
             </div>
-            <button onclick="validerConnexion()" id="btn-auth" class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black">
+
+            <button onclick="handleLogin()" id="login-btn" class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black shadow-lg shadow-indigo-200 transition-all active:scale-95">
                 SE CONNECTER
             </button>
         </div>
     </div>
 
-    <div id="app-content" style="display:none;" class="p-4 max-w-4xl mx-auto">
-        <header class="flex justify-between items-center mb-8 bg-white p-4 rounded-3xl shadow-sm">
-            <span id="user-display" class="font-black text-indigo-600 uppercase text-sm">Chargement...</span>
-            <button onclick="firebase.auth().signOut()" class="text-xs font-bold text-rose-500">DÉCONNEXION</button>
-        </header>
-
-        <div class="grid grid-cols-1 gap-4 mb-8">
-            <div class="bg-white p-6 rounded-3xl shadow-sm text-center">
-                <p class="text-xs font-bold text-slate-400 uppercase">Solde Total</p>
-                <h3 id="solde-total" class="text-3xl font-black">0.00 €</h3>
+    <div id="report-modal" style="display:none;">
+        <div class="bg-white p-6 rounded-[2.5rem] shadow-2xl max-w-lg w-full mx-4 border border-slate-100">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black text-slate-800">📊 Votre Rapport</h2>
+                <button onclick="toggleModal(false)" class="bg-slate-100 text-slate-500 w-10 h-10 rounded-full font-bold">✕</button>
+            </div>
+            <input type="month" id="report-month-picker" onchange="generateMonthlyReport()" class="w-full p-4 bg-slate-50 rounded-2xl border-none font-black text-indigo-600 mb-6">
+            <div id="report-content" class="space-y-4 max-h-[50vh] overflow-y-auto pr-2"></div>
+            <div class="flex gap-3 mt-8">
+                <button onclick="window.print()" class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg">EXPORTER PDF</button>
+                <button onclick="toggleModal(false)" class="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-black">FERMER</button>
             </div>
         </div>
+    </div>
 
-        <div class="bg-white rounded-3xl shadow-xl overflow-hidden mb-8">
-            <div class="flex p-2 bg-slate-50 gap-2">
-                <button onclick="changerType('expense')" id="tab-exp" class="flex-1 py-3 rounded-xl font-black text-xs tab-active">SORTIE</button>
-                <button onclick="changerType('income')" id="tab-inc" class="flex-1 py-3 rounded-xl font-black text-xs text-slate-400">ENTRÉE</button>
-            </div>
-            <div class="p-6 space-y-4">
-                <input type="text" id="ope-desc" placeholder="Objet" class="w-full p-4 bg-slate-50 rounded-2xl outline-none">
-                <input type="number" id="ope-amt" placeholder="Montant" class="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xl font-black">
-                <button onclick="ajouterOperation()" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg">ENREGISTRER</button>
-            </div>
-        </div>
+    <div id="app-content" style="display:none;">
+        <div class="max-w-6xl mx-auto p-4 md:p-8">
+            
+            <header class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-4 mb-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-4 w-full sm:w-auto">
+                    <div id="user-icon-badge" class="w-12 h-12 user-badge rounded-2xl flex items-center justify-center text-white text-xl font-black">?</div>
+                    <div>
+                        <span id="current-user-display" class="text-lg font-black text-slate-800 block">Chargement...</span>
+                        <button onclick="auth.signOut()" class="text-[11px] font-bold text-slate-400 hover:text-rose-500 uppercase tracking-widest">↻ Déconnexion</button>
+                    </div>
+                </div>
+                <button onclick="toggleModal(true)" class="w-full sm:w-auto bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg">
+                    📊 ANALYSE & PDF
+                </button>
+            </header>
 
-        <div class="bg-white rounded-3xl shadow-sm border overflow-hidden">
-            <table class="w-full text-left">
-                <tbody id="liste-ope" class="divide-y"></tbody>
-            </table>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 text-center">
+                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Solde Global</p>
+                    <h3 class="text-3xl font-black text-slate-800 mt-1" id="totalBalance">0.00 €</h3>
+                </div>
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-l-8 border-l-emerald-500">
+                    <p class="text-[11px] font-bold text-emerald-500 uppercase tracking-widest">Revenus</p>
+                    <h3 class="text-3xl font-black text-slate-800 mt-1" id="totalIncomes">0.00 €</h3>
+                </div>
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-l-8 border-l-rose-500">
+                    <p class="text-[11px] font-bold text-rose-500 uppercase tracking-widest">Dépenses</p>
+                    <h3 class="text-3xl font-black text-slate-800 mt-1" id="totalExpenses">0.00 €</h3>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-slate-100">
+                        <div class="flex p-2 bg-slate-50 gap-2">
+                            <button onclick="setType('expense')" id="btnExp" class="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase transition-all tab-active bg-white">Sortie</button>
+                            <button onclick="setType('income')" id="btnInc" class="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase transition-all text-slate-400">Entrée</button>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <input type="text" id="desc" placeholder="Objet" class="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500">
+                            <input type="number" id="amount" placeholder="0.00 €" class="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-xl font-black">
+                            <select id="category" class="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-600"></select>
+                            <button onclick="saveTransaction()" class="w-full py-4 rounded-2xl text-white font-black shadow-lg bg-indigo-600 transition-all">ENREGISTRER</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                        <canvas id="budgetChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2 bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                    <div class="p-6 border-b border-slate-50 font-black text-xs text-slate-400 uppercase tracking-widest">Dernières opérations</div>
+                    <div class="overflow-y-auto max-h-[600px]">
+                        <table class="w-full">
+                            <tbody id="transactionList" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // 1. CONFIGURATION
         const firebaseConfig = {
             apiKey: "AIzaSyDxBlFg_z1gWM-O9lHH0UdqLmqRyno7Eys",
             databaseURL: "https://budget-20988-default-rtdb.europe-west1.firebasedatabase.app/",
             projectId: "budget-20988",
         };
         firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
 
-        const PROFIL_NOMS = {
-            "izno49@gmail.com": "Clément 🧔",
-            "maman@famille.com": "Maman 👩"
+        let transactions = [], myChart, currentUser = "", currentType = "expense";
+        const PROFIL_CONFIG = {
+            "izno49@gmail.com": { name: "Clément 🧔", icon: "C", color: "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)" },
+            "maman@famille.com": { name: "Maman 👩", icon: "M", color: "linear-gradient(135deg, #ec4899 0%, #be185d 100%)" }
+        };
+        const cats = { 
+            expense: ["Alimentation", "Loisirs", "Logement", "Transport", "Santé", "Abonnements", "Autre"], 
+            income: ["Salaire", "Indemnité", "Cadeau", "Autre"] 
         };
 
-        let currentType = 'expense';
-        let dataLocal = [];
-
-        // 2. FONCTION DE CONNEXION
-        function validerConnexion() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-password').value;
-            const btn = document.getElementById('btn-auth');
-
+        // --- AUTH ---
+        function handleLogin() {
+            const email = document.getElementById('email-input').value.trim();
+            const pass = document.getElementById('password-input').value.trim();
+            const btn = document.getElementById('login-btn');
             if(!email || !pass) return alert("Remplissez les champs");
-
+            
             btn.disabled = true;
-            btn.innerText = "VERIFICATION...";
+            btn.innerText = "CONNEXION...";
 
-            firebase.auth().signInWithEmailAndPassword(email, pass)
-                .catch(err => {
-                    alert("Erreur: " + err.message);
-                    btn.disabled = false;
-                    btn.innerText = "SE CONNECTER";
-                });
+            auth.signInWithEmailAndPassword(email, pass).catch(e => {
+                btn.disabled = false;
+                btn.innerText = "SE CONNECTER";
+                alert("Erreur: " + e.message);
+            });
         }
 
-        // 3. SURVEILLANCE AUTH
-        firebase.auth().onAuthStateChanged(user => {
+        auth.onAuthStateChanged(user => {
             if (user) {
+                const config = PROFIL_CONFIG[user.email] || { name: user.email, icon: "?", color: "#333" };
+                currentUser = config.name;
                 document.getElementById('auth-screen').style.display = 'none';
                 document.getElementById('app-content').style.display = 'block';
-                document.getElementById('user-display').innerText = PROFIL_NOMS[user.email] || user.email;
-                ecouterDonnees();
+                document.getElementById('current-user-display').innerText = config.name;
+                document.getElementById('user-icon-badge').innerText = config.icon;
+                document.getElementById('user-icon-badge').style.background = config.color;
+                initSync();
             } else {
                 document.getElementById('auth-screen').style.display = 'flex';
                 document.getElementById('app-content').style.display = 'none';
             }
         });
 
-        // 4. DONNÉES
-        function ecouterDonnees() {
-            firebase.database().ref('data/transactions').on('value', snap => {
-                dataLocal = snap.val() || [];
-                rafraichirInterface();
+        // --- DATA ---
+        function initSync() {
+            db.ref('data/transactions').on('value', snap => {
+                transactions = snap.val() || [];
+                updateUI();
             });
         }
 
-        function changerType(t) {
+        function setType(t) {
             currentType = t;
-            document.getElementById('tab-exp').className = t === 'expense' ? 'flex-1 py-3 rounded-xl font-black text-xs tab-active' : 'flex-1 py-3 rounded-xl font-black text-xs text-slate-400';
-            document.getElementById('tab-inc').className = t === 'income' ? 'flex-1 py-3 rounded-xl font-black text-xs tab-active' : 'flex-1 py-3 rounded-xl font-black text-xs text-slate-400';
+            document.getElementById('category').innerHTML = cats[t].map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('btnExp').className = t === 'expense' ? 'flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tab-active bg-white' : 'flex-1 py-3.5 rounded-2xl font-black text-xs uppercase text-slate-400';
+            document.getElementById('btnInc').className = t === 'income' ? 'flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tab-active bg-white' : 'flex-1 py-3.5 rounded-2xl font-black text-xs uppercase text-slate-400';
         }
 
-        function ajouterOperation() {
-            const desc = document.getElementById('ope-desc').value;
-            const amt = parseFloat(document.getElementById('ope-amt').value);
-            const user = firebase.auth().currentUser;
+        function saveTransaction() {
+            const d = document.getElementById('desc').value, a = parseFloat(document.getElementById('amount').value);
+            if(!d || isNaN(a)) return alert("Vérifiez la saisie");
 
-            if(!desc || isNaN(amt)) return alert("Incomplet");
-
-            const nouvelleOpe = {
+            const tx = {
                 id: Date.now(),
-                txt: desc,
-                val: currentType === 'expense' ? -Math.abs(amt) : Math.abs(amt),
-                user: PROFIL_NOMS[user.email] || user.email,
-                date: new Date().toLocaleDateString('fr-FR')
+                date: new Date().toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
+                isoDate: new Date().toISOString(),
+                description: d,
+                amount: currentType === 'expense' ? -Math.abs(a) : Math.abs(a),
+                category: document.getElementById('category').value,
+                author: currentUser
             };
 
-            dataLocal.unshift(nouvelleOpe);
-            firebase.database().ref('data/transactions').set(dataLocal).then(() => {
-                document.getElementById('ope-desc').value = "";
-                document.getElementById('ope-amt').value = "";
+            transactions.unshift(tx);
+            db.ref('data/transactions').set(transactions).then(() => {
+                document.getElementById('desc').value = ""; document.getElementById('amount').value = "";
             });
         }
 
-        function rafraichirInterface() {
-            const liste = document.getElementById('liste-ope');
-            let total = 0;
-            liste.innerHTML = "";
-            
-            dataLocal.forEach(t => {
-                total += t.val;
-                liste.innerHTML += `
-                    <tr class="p-4 flex justify-between items-center">
-                        <td class="p-4">
-                            <div class="font-black text-slate-800">${t.txt}</div>
-                            <div class="text-[10px] text-slate-400 font-bold uppercase">${t.user} • ${t.date}</div>
+        function updateUI() {
+            const list = document.getElementById('transactionList');
+            let inc = 0, exp = 0; list.innerHTML = "";
+            transactions.forEach(t => {
+                if(t.amount > 0) inc += t.amount; else exp += Math.abs(t.amount);
+                list.innerHTML += `
+                    <tr class="group hover:bg-indigo-50/30 transition-all">
+                        <td class="p-5">
+                            <p class="font-black text-slate-800 text-sm mb-1">${t.description}</p>
+                            <span class="bg-slate-100 text-slate-500 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">${t.category}</span>
+                            <span class="text-[9px] text-indigo-400 font-bold uppercase ml-2">${t.author} • ${t.date}</span>
                         </td>
-                        <td class="p-4 font-black ${t.val < 0 ? 'text-rose-500' : 'text-emerald-500'}">
-                            ${t.val.toLocaleString()} €
+                        <td class="p-5 text-right font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'} text-base">
+                            ${t.amount.toLocaleString()}€
+                        </td>
+                        <td class="p-5 text-right w-10">
+                            <button onclick="deleteTx(${t.id})" class="text-slate-200 hover:text-rose-500 transition-colors">✕</button>
                         </td>
                     </tr>`;
             });
-            document.getElementById('solde-total').innerText = total.toLocaleString() + " €";
+            document.getElementById('totalBalance').innerText = (inc - exp).toLocaleString() + " €";
+            document.getElementById('totalIncomes').innerText = inc.toLocaleString() + " €";
+            document.getElementById('totalExpenses').innerText = exp.toLocaleString() + " €";
+            renderChart();
+        }
+
+        function deleteTx(id) {
+            if(confirm("Supprimer cette opération ?")) {
+                transactions = transactions.filter(t => t.id !== id);
+                db.ref('data/transactions').set(transactions);
+            }
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('budgetChart');
+            const dataMap = {};
+            transactions.filter(t => t.amount < 0).forEach(t => { dataMap[t.category] = (dataMap[t.category] || 0) + Math.abs(t.amount); });
+            if(myChart) myChart.destroy();
+            if(Object.keys(dataMap).length === 0) return;
+            myChart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(dataMap), datasets: [{ data: Object.values(dataMap), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'], borderWidth: 4, borderColor: '#fff' }] }, options: { cutout: '75%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 15, font: { size: 10, weight: 'bold' } } } } } });
+        }
+
+        function toggleModal(s) {
+            if(s) {
+                document.getElementById('report-month-picker').value = new Date().toISOString().substring(0, 7);
+                generateMonthlyReport();
+            }
+            document.getElementById('report-modal').style.display = s ? 'flex' : 'none';
+        }
+
+        function generateMonthlyReport() {
+            const [y, m] = document.getElementById('report-month-picker').value.split('-').map(Number);
+            const filtered = transactions.filter(t => {
+                const d = new Date(t.isoDate);
+                return d.getMonth() === (m-1) && d.getFullYear() === y;
+            });
+            let inc = 0, exp = 0; const userMap = {};
+            filtered.forEach(t => {
+                if(t.amount > 0) inc += t.amount; else exp += Math.abs(t.amount);
+                userMap[t.author] = (userMap[t.author] || 0) + t.amount;
+            });
+            const bal = inc - exp;
+            document.getElementById('report-content').innerHTML = `
+                <div class="${bal >= 0 ? 'bg-emerald-600' : 'bg-rose-600'} p-6 rounded-3xl text-white text-center shadow-lg mb-4">
+                    <p class="text-4xl font-black">${bal.toLocaleString()}€</p>
+                    <p class="text-[10px] uppercase font-bold opacity-70">Solde Mensuel</p>
+                </div>
+                ${Object.entries(userMap).map(([u, v]) => `
+                    <div class="flex justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <span class="font-bold text-slate-600">${u}</span>
+                        <span class="font-black ${v < 0 ? 'text-rose-500' : 'text-emerald-500'}">${v.toLocaleString()}€</span>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        setType('expense');
+    </script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(e => console.error(e));
+            });
         }
     </script>
 </body>
