@@ -196,10 +196,24 @@
         });
 
         function handleLogin() {
-            const email = document.getElementById('email-input').value;
-            const pass = document.getElementById('password-input').value;
-            if(!email || !pass) return alert("Champs vides");
-            auth.signInWithEmailAndPassword(email, pass).catch(e => alert("Erreur d'accès"));
+            const email = document.getElementById('email-input').value.trim();
+            const pass = document.getElementById('password-input').value.trim();
+            const btn = document.getElementById('login-btn');
+
+            if (!email || !pass) {
+                alert("Veuillez remplir l'email et le mot de passe.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "CONNEXION...";
+
+            auth.signInWithEmailAndPassword(email, pass)
+                .catch(error => {
+                    btn.disabled = false;
+                    btn.innerText = "SE CONNECTER";
+                    alert("Erreur de connexion : " + error.message);
+                });
         }
 
         function initSync() {
@@ -343,7 +357,7 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./sw.js')
             .then(reg => console.log('SW enregistré !'))
-            .catch(err => console.log('Erreur SW', err));
+            .catch(err => console.error('Erreur SW', err));
         });
       }
     </script>
