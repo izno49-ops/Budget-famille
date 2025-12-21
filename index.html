@@ -27,24 +27,18 @@
             justify-content: center; align-items: center; 
         }
         .user-badge { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); }
-        #debug-info {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 10px;
+        .read-only-badge {
+            background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+            padding: 4px 12px;
+            border-radius: 20px;
             font-size: 10px;
-            max-width: 90%;
-            z-index: 99999;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
         }
     </style>
 </head>
 <body class="bg-[#f8fafc] min-h-screen">
-
-    <!-- Debug info -->
-    <div id="debug-info"></div>
 
     <div id="auth-screen">
         <div class="p-8 bg-white rounded-[2.5rem] shadow-2xl text-center max-w-sm w-full mx-4 border border-slate-100">
@@ -59,6 +53,10 @@
 
             <button onclick="handleLogin()" id="login-btn" class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black shadow-lg shadow-indigo-200 transition-all active:scale-95">
                 SE CONNECTER
+            </button>
+            
+            <button onclick="handleSignup()" class="w-full mt-3 bg-white text-indigo-600 py-4 rounded-3xl font-black border-2 border-indigo-600 transition-all active:scale-95">
+                CRÉER UN COMPTE
             </button>
         </div>
     </div>
@@ -84,7 +82,10 @@
                 <div class="flex items-center gap-4">
                     <div id="user-icon-badge" class="w-12 h-12 user-badge rounded-2xl flex items-center justify-center text-white text-xl font-black">?</div>
                     <div>
-                        <span id="current-user-display" class="text-lg font-black text-slate-800">...</span>
+                        <div class="flex items-center gap-2">
+                            <span id="current-user-display" class="text-lg font-black text-slate-800">...</span>
+                            <span id="read-only-indicator" class="read-only-badge" style="display:none;">Lecture seule</span>
+                        </div>
                         <button onclick="auth.signOut()" class="text-[11px] font-bold text-slate-400 block uppercase">Déconnexion</button>
                     </div>
                 </div>
@@ -108,7 +109,7 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div class="lg:col-span-1 space-y-6">
-                    <div class="bg-white rounded-[2rem] shadow-xl overflow-hidden border">
+                    <div id="transaction-form" class="bg-white rounded-[2rem] shadow-xl overflow-hidden border">
                         <div class="flex p-2 bg-slate-50 gap-2">
                             <button onclick="setType('expense')" id="btnExp" class="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tab-active bg-white">Sortie</button>
                             <button onclick="setType('income')" id="btnInc" class="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase text-slate-400">Entrée</button>
@@ -117,7 +118,7 @@
                             <input type="text" id="desc" placeholder="Objet" class="w-full p-4 bg-slate-50 rounded-2xl outline-none">
                             <input type="number" id="amount" placeholder="0.00" class="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xl font-black">
                             <select id="category" class="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-600"></select>
-                            <button onclick="saveTransaction()" class="w-full py-4 rounded-2xl text-white font-black bg-indigo-600 shadow-lg">ENREGISTRER</button>
+                            <button onclick="saveTransaction()" id="save-btn" class="w-full py-4 rounded-2xl text-white font-black bg-indigo-600 shadow-lg">ENREGISTRER</button>
                         </div>
                     </div>
                     <canvas id="budgetChart"></canvas>
@@ -133,15 +134,6 @@
     </div>
 
     <script>
-        // Debug function
-        function logDebug(msg) {
-            const debugDiv = document.getElementById('debug-info');
-            debugDiv.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + msg;
-            console.log(msg);
-        }
-
-        logDebug('App démarrée');
-
         const firebaseConfig = {
             apiKey: "AIzaSyDxBlFg_z1gWM-O9lHH0UdqLmqRyno7Eys",
             authDomain: "budget-20988.firebaseapp.com",
@@ -149,21 +141,46 @@
             projectId: "budget-20988",
         };
         
-        try {
-            firebase.initializeApp(firebaseConfig);
-            logDebug('Firebase initialisé');
-        } catch(e) {
-            logDebug('Erreur Firebase: ' + e.message);
-        }
-        
+        firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         const auth = firebase.auth();
 
-        let transactions = [], myChart, currentUser = "", currentType = "expense";
+        let transactions = [], myChart, currentUser = "", currentType = "expense", isReadOnly = false;
+        
+        // Configuration des profils utilisateurs
         const PROFIL_CONFIG = {
-            "izno49@gmail.com": { name: "Clément 🧔", icon: "C", color: "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)" },
-            "maman@famille.com": { name: "Maman 👩", icon: "M", color: "linear-gradient(135deg, #ec4899 0%, #be185d 100%)" }
+            "izno49@gmail.com": { 
+                name: "Clément 🧔", 
+                icon: "C", 
+                color: "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
+                role: "admin"
+            },
+            "papa@famille.com": { 
+                name: "Papa 👨", 
+                icon: "P", 
+                color: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                role: "admin"
+            },
+            "maman@famille.com": { 
+                name: "Maman 👩", 
+                icon: "M", 
+                color: "linear-gradient(135deg, #ec4899 0%, #be185d 100%)",
+                role: "admin"
+            },
+            "enfant@famille.com": { 
+                name: "Enfant 👶", 
+                icon: "E", 
+                color: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                role: "admin"
+            },
+            "invite@famille.com": { 
+                name: "Invité 👤", 
+                icon: "I", 
+                color: "linear-gradient(135deg, #94a3b8 0%, #64748b 100%)",
+                role: "readonly"
+            }
         };
+        
         const cats = { 
             expense: ["Alimentation", "Loisirs", "Logement", "Transport", "Santé", "Abonnements", "Autre"], 
             income: ["Salaire", "Indemnité", "Cadeau", "Autre"] 
@@ -174,47 +191,104 @@
             const pass = document.getElementById('password-input').value.trim();
             const btn = document.getElementById('login-btn');
             
-            logDebug('Tentative de connexion: ' + email);
-            
             if(!email || !pass) {
-                alert("Champs vides");
+                alert("Veuillez remplir tous les champs");
                 return;
             }
             
             btn.disabled = true;
-            btn.innerText = "VERIFICATION...";
+            btn.innerText = "VÉRIFICATION...";
 
             auth.signInWithEmailAndPassword(email, pass)
-                .then(() => {
-                    logDebug('Connexion réussie');
-                })
                 .catch(e => {
-                    logDebug('Erreur auth: ' + e.code + ' - ' + e.message);
                     btn.disabled = false;
                     btn.innerText = "SE CONNECTER";
-                    alert("Erreur: " + e.message);
+                    
+                    let errorMsg = "Erreur de connexion";
+                    if(e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') {
+                        errorMsg = "Email ou mot de passe incorrect";
+                    } else if(e.code === 'auth/user-not-found') {
+                        errorMsg = "Utilisateur introuvable";
+                    } else if(e.code === 'auth/wrong-password') {
+                        errorMsg = "Mot de passe incorrect";
+                    } else if(e.code === 'auth/too-many-requests') {
+                        errorMsg = "Trop de tentatives. Réessayez plus tard.";
+                    }
+                    
+                    alert(errorMsg);
+                });
+        }
+
+        function handleSignup() {
+            const email = document.getElementById('email-input').value.trim();
+            const pass = document.getElementById('password-input').value.trim();
+            const btn = document.getElementById('login-btn');
+            
+            if(!email || !pass) {
+                alert("Veuillez remplir tous les champs");
+                return;
+            }
+            
+            if(pass.length < 6) {
+                alert("Le mot de passe doit contenir au moins 6 caractères");
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerText = "CRÉATION...";
+
+            auth.createUserWithEmailAndPassword(email, pass)
+                .then(() => {
+                    alert('Compte créé avec succès !');
+                })
+                .catch(e => {
+                    btn.disabled = false;
+                    btn.innerText = "SE CONNECTER";
+                    
+                    let errorMsg = "Erreur lors de la création du compte";
+                    if(e.code === 'auth/email-already-in-use') {
+                        errorMsg = "Cet email est déjà utilisé";
+                    } else if(e.code === 'auth/invalid-email') {
+                        errorMsg = "Email invalide";
+                    } else if(e.code === 'auth/weak-password') {
+                        errorMsg = "Mot de passe trop faible (minimum 6 caractères)";
+                    }
+                    
+                    alert(errorMsg);
                 });
         }
 
         auth.onAuthStateChanged(user => {
             if (user) {
-                logDebug('Utilisateur connecté: ' + user.email);
-                const config = PROFIL_CONFIG[user.email] || { name: user.email, icon: "?", color: "#333" };
+                const config = PROFIL_CONFIG[user.email] || { 
+                    name: user.email, 
+                    icon: "?", 
+                    color: "#6366f1",
+                    role: "admin"
+                };
+                
                 currentUser = config.name;
+                isReadOnly = config.role === "readonly";
+                
                 document.getElementById('auth-screen').style.display = 'none';
                 document.getElementById('app-content').style.display = 'block';
                 document.getElementById('current-user-display').innerText = config.name;
                 document.getElementById('user-icon-badge').innerText = config.icon;
                 document.getElementById('user-icon-badge').style.background = config.color;
                 
-                // Hide debug after successful login
-                setTimeout(() => {
-                    document.getElementById('debug-info').style.display = 'none';
-                }, 3000);
+                // Afficher/masquer le badge "Lecture seule"
+                if(isReadOnly) {
+                    document.getElementById('read-only-indicator').style.display = 'inline-block';
+                    document.getElementById('transaction-form').style.opacity = '0.5';
+                    document.getElementById('transaction-form').style.pointerEvents = 'none';
+                } else {
+                    document.getElementById('read-only-indicator').style.display = 'none';
+                    document.getElementById('transaction-form').style.opacity = '1';
+                    document.getElementById('transaction-form').style.pointerEvents = 'auto';
+                }
                 
                 initSync();
             } else {
-                logDebug('Aucun utilisateur connecté');
                 document.getElementById('auth-screen').style.display = 'flex';
                 document.getElementById('app-content').style.display = 'none';
             }
@@ -228,6 +302,7 @@
         }
 
         function setType(t) {
+            if(isReadOnly) return;
             currentType = t;
             document.getElementById('category').innerHTML = cats[t].map(c => `<option value="${c}">${c}</option>`).join('');
             document.getElementById('btnExp').className = t === 'expense' ? 'flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tab-active bg-white' : 'flex-1 py-3.5 rounded-2xl font-black text-xs uppercase text-slate-400';
@@ -235,8 +310,19 @@
         }
 
         function saveTransaction() {
-            const d = document.getElementById('desc').value, a = parseFloat(document.getElementById('amount').value);
-            if(!d || isNaN(a)) return;
+            if(isReadOnly) {
+                alert("Vous n'avez pas les permissions pour ajouter des transactions");
+                return;
+            }
+            
+            const d = document.getElementById('desc').value;
+            const a = parseFloat(document.getElementById('amount').value);
+            
+            if(!d || isNaN(a) || a <= 0) {
+                alert("Veuillez remplir tous les champs correctement");
+                return;
+            }
+            
             const tx = {
                 id: Date.now(),
                 date: new Date().toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
@@ -246,6 +332,7 @@
                 category: document.getElementById('category').value,
                 author: currentUser
             };
+            
             transactions.unshift(tx);
             db.ref('data/transactions').set(transactions).then(() => {
                 document.getElementById('desc').value = ""; 
@@ -257,9 +344,11 @@
             const list = document.getElementById('transactionList');
             let inc = 0, exp = 0; 
             list.innerHTML = "";
+            
             transactions.forEach(t => {
                 if(t.amount > 0) inc += t.amount; 
                 else exp += Math.abs(t.amount);
+                
                 list.innerHTML += `
                     <tr class="p-4 border-b flex justify-between items-center">
                         <td class="p-4">
@@ -271,6 +360,7 @@
                         </td>
                     </tr>`;
             });
+            
             document.getElementById('totalBalance').innerText = (inc - exp).toLocaleString() + " €";
             document.getElementById('totalIncomes').innerText = inc.toLocaleString() + " €";
             document.getElementById('totalExpenses').innerText = exp.toLocaleString() + " €";
@@ -280,18 +370,21 @@
         function renderChart() {
             const ctx = document.getElementById('budgetChart');
             const dataMap = {};
+            
             transactions.filter(t => t.amount < 0).forEach(t => { 
                 dataMap[t.category] = (dataMap[t.category] || 0) + Math.abs(t.amount); 
             });
+            
             if(myChart) myChart.destroy();
             if(Object.keys(dataMap).length === 0) return;
+            
             myChart = new Chart(ctx, { 
                 type: 'doughnut', 
                 data: { 
                     labels: Object.keys(dataMap), 
                     datasets: [{ 
                         data: Object.values(dataMap), 
-                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444'], 
+                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'], 
                         borderWidth: 4 
                     }] 
                 }, 
@@ -318,12 +411,31 @@
                 const d = new Date(t.iso); 
                 return d.getMonth() === (m-1) && d.getFullYear() === y; 
             });
-            let bal = 0; 
-            filtered.forEach(t => bal += t.amount);
+            
+            let bal = 0, inc = 0, exp = 0;
+            filtered.forEach(t => {
+                bal += t.amount;
+                if(t.amount > 0) inc += t.amount;
+                else exp += Math.abs(t.amount);
+            });
+            
             document.getElementById('report-content').innerHTML = `
                 <div class="p-6 bg-indigo-600 rounded-3xl text-white text-center">
                     <p class="text-4xl font-black">${bal.toLocaleString()}€</p>
                     <p class="text-xs uppercase opacity-70">Solde Mensuel</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-4 bg-emerald-50 rounded-2xl text-center">
+                        <p class="text-xs text-emerald-600 font-bold uppercase">Revenus</p>
+                        <p class="text-2xl font-black text-emerald-700">${inc.toLocaleString()}€</p>
+                    </div>
+                    <div class="p-4 bg-rose-50 rounded-2xl text-center">
+                        <p class="text-xs text-rose-600 font-bold uppercase">Dépenses</p>
+                        <p class="text-2xl font-black text-rose-700">${exp.toLocaleString()}€</p>
+                    </div>
+                </div>
+                <div class="text-sm text-slate-600">
+                    <p class="font-bold mb-2">📊 ${filtered.length} transaction(s) ce mois</p>
                 </div>`;
         }
 
