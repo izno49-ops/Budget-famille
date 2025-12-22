@@ -21,11 +21,13 @@
     <style>
         input, select { -webkit-appearance: none; border-radius: 0; }
         .tab-active { border-bottom: 3px solid #4f46e5; color: #4f46e5; }
-        #auth-screen, #report-modal { 
-            position: fixed; inset: 0; background: #f1f5f9; 
+        #auth-screen, #report-modal, #edit-modal { 
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); 
             z-index: 10000; display: flex; flex-direction: column; 
             justify-content: center; align-items: center; 
+            backdrop-filter: blur(4px);
         }
+        #auth-screen { background: #f1f5f9; backdrop-filter: none; }
         .user-badge { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); }
         .read-only-badge {
             background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
@@ -35,6 +37,17 @@
             color: white;
             font-weight: bold;
             text-transform: uppercase;
+        }
+        .action-btn {
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .action-btn:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -58,6 +71,28 @@
             <button onclick="handleSignup()" class="w-full mt-3 bg-white text-indigo-600 py-4 rounded-3xl font-black border-2 border-indigo-600 transition-all active:scale-95">
                 CRÉER UN COMPTE
             </button>
+        </div>
+    </div>
+
+    <!-- Modal d'édition -->
+    <div id="edit-modal" style="display:none;">
+        <div class="bg-white p-6 rounded-[2.5rem] shadow-2xl max-w-md w-full mx-4 border">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black text-slate-800">✏️ Modifier</h2>
+                <button onclick="closeEditModal()" class="bg-slate-100 text-slate-500 w-10 h-10 rounded-full flex items-center justify-center font-bold">✕</button>
+            </div>
+            
+            <div class="space-y-4">
+                <input type="text" id="edit-desc" placeholder="Description" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500">
+                <input type="number" id="edit-amount" placeholder="Montant" class="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xl font-black border-2 border-transparent focus:border-indigo-500">
+                <input type="date" id="edit-date" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500">
+                <select id="edit-category" class="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-600"></select>
+                
+                <div class="flex gap-3 mt-6">
+                    <button onclick="updateTransaction()" class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg">ENREGISTRER</button>
+                    <button onclick="closeEditModal()" class="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-black">ANNULER</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -117,6 +152,7 @@
                         <div class="p-6 space-y-4">
                             <input type="text" id="desc" placeholder="Objet" class="w-full p-4 bg-slate-50 rounded-2xl outline-none">
                             <input type="number" id="amount" placeholder="0.00" class="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xl font-black">
+                            <input type="date" id="transaction-date" class="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold">
                             <select id="category" class="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-600"></select>
                             <button onclick="saveTransaction()" id="save-btn" class="w-full py-4 rounded-2xl text-white font-black bg-indigo-600 shadow-lg">ENREGISTRER</button>
                         </div>
@@ -145,9 +181,8 @@
         const db = firebase.database();
         const auth = firebase.auth();
 
-        let transactions = [], myChart, currentUser = "", currentType = "expense", isReadOnly = false;
+        let transactions = [], myChart, currentUser = "", currentType = "expense", isReadOnly = false, editingId = null;
         
-        // Configuration des profils utilisateurs
         const PROFIL_CONFIG = {
             "izno49@gmail.com": { 
                 name: "Clément 🧔", 
@@ -163,11 +198,11 @@
             },
             "raphaelle.henry@outlook.com": { 
                 name: "Raphaëlle 👩", 
-                icon: "M", 
+                icon: "R", 
                 color: "linear-gradient(135deg, #ec4899 0%, #be185d 100%)",
                 role: "admin"
             },
-            "baka_ichigo@hotmail.fr ": { 
+            "baka_ichigo@hotmail.fr": { 
                 name: "Cukipik 👶", 
                 icon: "E", 
                 color: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
@@ -185,6 +220,9 @@
             expense: ["Alimentation", "Loisirs", "Logement", "Transport", "Santé", "Abonnements", "Autre"], 
             income: ["Salaire", "Indemnité", "Cadeau", "Autre"] 
         };
+
+        // Initialiser la date du jour
+        document.getElementById('transaction-date').valueAsDate = new Date();
 
         function handleLogin() {
             const email = document.getElementById('email-input').value.trim();
@@ -276,7 +314,6 @@
                 document.getElementById('user-icon-badge').innerText = config.icon;
                 document.getElementById('user-icon-badge').style.background = config.color;
                 
-                // Afficher/masquer le badge "Lecture seule"
                 if(isReadOnly) {
                     document.getElementById('read-only-indicator').style.display = 'inline-block';
                     document.getElementById('transaction-form').style.opacity = '0.5';
@@ -317,16 +354,19 @@
             
             const d = document.getElementById('desc').value;
             const a = parseFloat(document.getElementById('amount').value);
+            const selectedDate = document.getElementById('transaction-date').value;
             
             if(!d || isNaN(a) || a <= 0) {
                 alert("Veuillez remplir tous les champs correctement");
                 return;
             }
             
+            const transDate = new Date(selectedDate + 'T12:00:00');
+            
             const tx = {
                 id: Date.now(),
-                date: new Date().toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
-                iso: new Date().toISOString(),
+                date: transDate.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
+                iso: transDate.toISOString(),
                 description: d,
                 amount: currentType === 'expense' ? -Math.abs(a) : Math.abs(a),
                 category: document.getElementById('category').value,
@@ -337,7 +377,75 @@
             db.ref('data/transactions').set(transactions).then(() => {
                 document.getElementById('desc').value = ""; 
                 document.getElementById('amount').value = "";
+                document.getElementById('transaction-date').valueAsDate = new Date();
             });
+        }
+
+        function openEditModal(id) {
+            if(isReadOnly) {
+                alert("Vous n'avez pas les permissions pour modifier");
+                return;
+            }
+            
+            const tx = transactions.find(t => t.id === id);
+            if(!tx) return;
+            
+            editingId = id;
+            document.getElementById('edit-desc').value = tx.description;
+            document.getElementById('edit-amount').value = Math.abs(tx.amount);
+            document.getElementById('edit-date').value = new Date(tx.iso).toISOString().split('T')[0];
+            
+            const type = tx.amount < 0 ? 'expense' : 'income';
+            document.getElementById('edit-category').innerHTML = cats[type].map(c => `<option value="${c}" ${c === tx.category ? 'selected' : ''}>${c}</option>`).join('');
+            
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            editingId = null;
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        function updateTransaction() {
+            if(!editingId) return;
+            
+            const d = document.getElementById('edit-desc').value;
+            const a = parseFloat(document.getElementById('edit-amount').value);
+            const selectedDate = document.getElementById('edit-date').value;
+            const cat = document.getElementById('edit-category').value;
+            
+            if(!d || isNaN(a) || a <= 0) {
+                alert("Veuillez remplir tous les champs correctement");
+                return;
+            }
+            
+            const transDate = new Date(selectedDate + 'T12:00:00');
+            const txIndex = transactions.findIndex(t => t.id === editingId);
+            
+            if(txIndex !== -1) {
+                const oldAmount = transactions[txIndex].amount;
+                transactions[txIndex].description = d;
+                transactions[txIndex].amount = oldAmount < 0 ? -Math.abs(a) : Math.abs(a);
+                transactions[txIndex].category = cat;
+                transactions[txIndex].date = transDate.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'});
+                transactions[txIndex].iso = transDate.toISOString();
+                
+                db.ref('data/transactions').set(transactions).then(() => {
+                    closeEditModal();
+                });
+            }
+        }
+
+        function deleteTransaction(id) {
+            if(isReadOnly) {
+                alert("Vous n'avez pas les permissions pour supprimer");
+                return;
+            }
+            
+            if(!confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) return;
+            
+            transactions = transactions.filter(t => t.id !== id);
+            db.ref('data/transactions').set(transactions);
         }
 
         function updateUI() {
@@ -349,14 +457,24 @@
                 if(t.amount > 0) inc += t.amount; 
                 else exp += Math.abs(t.amount);
                 
+                const actionButtons = !isReadOnly ? `
+                    <div class="flex gap-1">
+                        <button onclick="openEditModal(${t.id})" class="action-btn bg-blue-100 text-blue-600">✏️</button>
+                        <button onclick="deleteTransaction(${t.id})" class="action-btn bg-red-100 text-red-600">🗑️</button>
+                    </div>
+                ` : '';
+                
                 list.innerHTML += `
-                    <tr class="p-4 border-b flex justify-between items-center">
+                    <tr class="p-4 border-b">
                         <td class="p-4">
                             <div class="font-black text-slate-800 text-sm">${t.description}</div>
-                            <div class="text-[9px] text-indigo-400 font-bold uppercase">${t.author} • ${t.category}</div>
+                            <div class="text-[9px] text-indigo-400 font-bold uppercase">${t.author} • ${t.category} • ${t.date}</div>
                         </td>
-                        <td class="p-4 text-right font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">
-                            ${t.amount.toLocaleString()}€
+                        <td class="p-4 text-right">
+                            <div class="font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">
+                                ${t.amount.toLocaleString()}€
+                            </div>
+                            ${actionButtons}
                         </td>
                     </tr>`;
             });
@@ -406,44 +524,39 @@
         }
 
         function generateMonthlyReport() {
-    const [y, m] = document.getElementById('report-month-picker').value.split('-').map(Number);
-    
-    // Filtrer les transactions du mois sélectionné
-    const filtered = transactions.filter(t => { 
-        const d = new Date(t.iso);
-        // m est déjà entre 1 et 12, donc on compare avec getMonth() + 1
-        return (d.getMonth() + 1) === m && d.getFullYear() === y; 
-    });
-    
-    let bal = 0, inc = 0, exp = 0;
-    filtered.forEach(t => {
-        bal += t.amount;
-        if(t.amount > 0) inc += t.amount;
-        else exp += Math.abs(t.amount);
-    });
-    
-    // Afficher le nombre de transactions filtrées pour déboguer
-    console.log(`Rapport pour ${m}/${y}: ${filtered.length} transactions trouvées`);
-    
-    document.getElementById('report-content').innerHTML = `
-        <div class="p-6 bg-indigo-600 rounded-3xl text-white text-center">
-            <p class="text-4xl font-black">${bal.toLocaleString()}€</p>
-            <p class="text-xs uppercase opacity-70">Solde Mensuel</p>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-            <div class="p-4 bg-emerald-50 rounded-2xl text-center">
-                <p class="text-xs text-emerald-600 font-bold uppercase">Revenus</p>
-                <p class="text-2xl font-black text-emerald-700">${inc.toLocaleString()}€</p>
-            </div>
-            <div class="p-4 bg-rose-50 rounded-2xl text-center">
-                <p class="text-xs text-rose-600 font-bold uppercase">Dépenses</p>
-                <p class="text-2xl font-black text-rose-700">${exp.toLocaleString()}€</p>
-            </div>
-        </div>
-        <div class="text-sm text-slate-600">
-            <p class="font-bold mb-2">📊 ${filtered.length} transaction(s) ce mois</p>
-        </div>`;
-}
+            const [y, m] = document.getElementById('report-month-picker').value.split('-').map(Number);
+            
+            const filtered = transactions.filter(t => { 
+                const d = new Date(t.iso);
+                return (d.getMonth() + 1) === m && d.getFullYear() === y; 
+            });
+            
+            let bal = 0, inc = 0, exp = 0;
+            filtered.forEach(t => {
+                bal += t.amount;
+                if(t.amount > 0) inc += t.amount;
+                else exp += Math.abs(t.amount);
+            });
+            
+            document.getElementById('report-content').innerHTML = `
+                <div class="p-6 bg-indigo-600 rounded-3xl text-white text-center">
+                    <p class="text-4xl font-black">${bal.toLocaleString()}€</p>
+                    <p class="text-xs uppercase opacity-70">Solde Mensuel</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="p-4 bg-emerald-50 rounded-2xl text-center">
+                        <p class="text-xs text-emerald-600 font-bold uppercase">Revenus</p>
+                        <p class="text-2xl font-black text-emerald-700">${inc.toLocaleString()}€</p>
+                    </div>
+                    <div class="p-4 bg-rose-50 rounded-2xl text-center">
+                        <p class="text-xs text-rose-600 font-bold uppercase">Dépenses</p>
+                        <p class="text-2xl font-black text-rose-700">${exp.toLocaleString()}€</p>
+                    </div>
+                </div>
+                <div class="text-sm text-slate-600">
+                    <p class="font-bold mb-2">📊 ${filtered.length} transaction(s) ce mois</p>
+                </div>`;
+        }
 
         setType('expense');
     </script>
