@@ -74,7 +74,6 @@
         </div>
     </div>
 
-    <!-- Modal d'édition -->
     <div id="edit-modal" style="display:none;">
         <div class="bg-white p-6 rounded-[2.5rem] shadow-2xl max-w-md w-full mx-4 border">
             <div class="flex justify-between items-center mb-6">
@@ -181,6 +180,10 @@
         const db = firebase.database();
         const auth = firebase.auth();
 
+        // Variables pour la déconnexion automatique
+        let inactivityTimer;
+        const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutes
+
         let transactions = [], myChart, currentUser = "", currentType = "expense", isReadOnly = false, editingId = null;
         
         const PROFIL_CONFIG = {
@@ -221,8 +224,23 @@
             income: ["Salaire", "Indemnité", "Cadeau", "Autre"] 
         };
 
-        // Initialiser la date du jour
         document.getElementById('transaction-date').valueAsDate = new Date();
+
+        // Gestion du minuteur d'inactivité
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            if (auth.currentUser) {
+                inactivityTimer = setTimeout(autoLogout, INACTIVITY_LIMIT);
+            }
+        }
+
+        function autoLogout() {
+            if (auth.currentUser) {
+                auth.signOut().then(() => {
+                    alert("Session expirée après 5 minutes d'inactivité.");
+                });
+            }
+        }
 
         function handleLogin() {
             const email = document.getElementById('email-input').value.trim();
@@ -237,23 +255,15 @@
             btn.disabled = true;
             btn.innerText = "VÉRIFICATION...";
 
-            auth.signInWithEmailAndPassword(email, pass)
+            // Forcer la persistance à 'SESSION' pour se déconnecter à la fermeture du navigateur
+            auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+                .then(() => {
+                    return auth.signInWithEmailAndPassword(email, pass);
+                })
                 .catch(e => {
                     btn.disabled = false;
                     btn.innerText = "SE CONNECTER";
-                    
-                    let errorMsg = "Erreur de connexion";
-                    if(e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') {
-                        errorMsg = "Email ou mot de passe incorrect";
-                    } else if(e.code === 'auth/user-not-found') {
-                        errorMsg = "Utilisateur introuvable";
-                    } else if(e.code === 'auth/wrong-password') {
-                        errorMsg = "Mot de passe incorrect";
-                    } else if(e.code === 'auth/too-many-requests') {
-                        errorMsg = "Trop de tentatives. Réessayez plus tard.";
-                    }
-                    
-                    alert(errorMsg);
+                    alert("Erreur de connexion : " + e.message);
                 });
         }
 
@@ -267,11 +277,6 @@
                 return;
             }
             
-            if(pass.length < 6) {
-                alert("Le mot de passe doit contenir au moins 6 caractères");
-                return;
-            }
-            
             btn.disabled = true;
             btn.innerText = "CRÉATION...";
 
@@ -282,17 +287,7 @@
                 .catch(e => {
                     btn.disabled = false;
                     btn.innerText = "SE CONNECTER";
-                    
-                    let errorMsg = "Erreur lors de la création du compte";
-                    if(e.code === 'auth/email-already-in-use') {
-                        errorMsg = "Cet email est déjà utilisé";
-                    } else if(e.code === 'auth/invalid-email') {
-                        errorMsg = "Email invalide";
-                    } else if(e.code === 'auth/weak-password') {
-                        errorMsg = "Mot de passe trop faible (minimum 6 caractères)";
-                    }
-                    
-                    alert(errorMsg);
+                    alert("Erreur lors de la création du compte : " + e.message);
                 });
         }
 
@@ -324,10 +319,22 @@
                     document.getElementById('transaction-form').style.pointerEvents = 'auto';
                 }
                 
+                // Activer la surveillance de l'activité
+                ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(evt => {
+                    document.addEventListener(evt, resetInactivityTimer, true);
+                });
+                resetInactivityTimer();
+
                 initSync();
             } else {
                 document.getElementById('auth-screen').style.display = 'flex';
                 document.getElementById('app-content').style.display = 'none';
+                
+                // Nettoyer les écouteurs
+                ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(evt => {
+                    document.removeEventListener(evt, resetInactivityTimer, true);
+                });
+                clearTimeout(inactivityTimer);
             }
         });
 
@@ -347,22 +354,14 @@
         }
 
         function saveTransaction() {
-            if(isReadOnly) {
-                alert("Vous n'avez pas les permissions pour ajouter des transactions");
-                return;
-            }
-            
+            if(isReadOnly) return;
             const d = document.getElementById('desc').value;
             const a = parseFloat(document.getElementById('amount').value);
             const selectedDate = document.getElementById('transaction-date').value;
             
-            if(!d || isNaN(a) || a <= 0) {
-                alert("Veuillez remplir tous les champs correctement");
-                return;
-            }
+            if(!d || isNaN(a) || a <= 0) return;
             
             const transDate = new Date(selectedDate + 'T12:00:00');
-            
             const tx = {
                 id: Date.now(),
                 date: transDate.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
@@ -377,27 +376,19 @@
             db.ref('data/transactions').set(transactions).then(() => {
                 document.getElementById('desc').value = ""; 
                 document.getElementById('amount').value = "";
-                document.getElementById('transaction-date').valueAsDate = new Date();
             });
         }
 
         function openEditModal(id) {
-            if(isReadOnly) {
-                alert("Vous n'avez pas les permissions pour modifier");
-                return;
-            }
-            
+            if(isReadOnly) return;
             const tx = transactions.find(t => t.id === id);
             if(!tx) return;
-            
             editingId = id;
             document.getElementById('edit-desc').value = tx.description;
             document.getElementById('edit-amount').value = Math.abs(tx.amount);
             document.getElementById('edit-date').value = new Date(tx.iso).toISOString().split('T')[0];
-            
             const type = tx.amount < 0 ? 'expense' : 'income';
             document.getElementById('edit-category').innerHTML = cats[type].map(c => `<option value="${c}" ${c === tx.category ? 'selected' : ''}>${c}</option>`).join('');
-            
             document.getElementById('edit-modal').style.display = 'flex';
         }
 
@@ -407,18 +398,11 @@
         }
 
         function updateTransaction() {
-            if(!editingId) return;
-            
+            if(!editingId || isReadOnly) return;
             const d = document.getElementById('edit-desc').value;
             const a = parseFloat(document.getElementById('edit-amount').value);
             const selectedDate = document.getElementById('edit-date').value;
             const cat = document.getElementById('edit-category').value;
-            
-            if(!d || isNaN(a) || a <= 0) {
-                alert("Veuillez remplir tous les champs correctement");
-                return;
-            }
-            
             const transDate = new Date(selectedDate + 'T12:00:00');
             const txIndex = transactions.findIndex(t => t.id === editingId);
             
@@ -429,21 +413,12 @@
                 transactions[txIndex].category = cat;
                 transactions[txIndex].date = transDate.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'});
                 transactions[txIndex].iso = transDate.toISOString();
-                
-                db.ref('data/transactions').set(transactions).then(() => {
-                    closeEditModal();
-                });
+                db.ref('data/transactions').set(transactions).then(closeEditModal);
             }
         }
 
         function deleteTransaction(id) {
-            if(isReadOnly) {
-                alert("Vous n'avez pas les permissions pour supprimer");
-                return;
-            }
-            
-            if(!confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) return;
-            
+            if(isReadOnly || !confirm('Supprimer ?')) return;
             transactions = transactions.filter(t => t.id !== id);
             db.ref('data/transactions').set(transactions);
         }
@@ -452,18 +427,13 @@
             const list = document.getElementById('transactionList');
             let inc = 0, exp = 0; 
             list.innerHTML = "";
-            
             transactions.forEach(t => {
-                if(t.amount > 0) inc += t.amount; 
-                else exp += Math.abs(t.amount);
-                
+                if(t.amount > 0) inc += t.amount; else exp += Math.abs(t.amount);
                 const actionButtons = !isReadOnly ? `
                     <div class="flex gap-1">
                         <button onclick="openEditModal(${t.id})" class="action-btn bg-blue-100 text-blue-600">✏️</button>
                         <button onclick="deleteTransaction(${t.id})" class="action-btn bg-red-100 text-red-600">🗑️</button>
-                    </div>
-                ` : '';
-                
+                    </div>` : '';
                 list.innerHTML += `
                     <tr class="p-4 border-b">
                         <td class="p-4">
@@ -471,14 +441,11 @@
                             <div class="text-[9px] text-indigo-400 font-bold uppercase">${t.author} • ${t.category} • ${t.date}</div>
                         </td>
                         <td class="p-4 text-right">
-                            <div class="font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">
-                                ${t.amount.toLocaleString()}€
-                            </div>
+                            <div class="font-black ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${t.amount.toLocaleString()}€</div>
                             ${actionButtons}
                         </td>
                     </tr>`;
             });
-            
             document.getElementById('totalBalance').innerText = (inc - exp).toLocaleString() + " €";
             document.getElementById('totalIncomes').innerText = inc.toLocaleString() + " €";
             document.getElementById('totalExpenses').innerText = exp.toLocaleString() + " €";
@@ -488,74 +455,26 @@
         function renderChart() {
             const ctx = document.getElementById('budgetChart');
             const dataMap = {};
-            
-            transactions.filter(t => t.amount < 0).forEach(t => { 
-                dataMap[t.category] = (dataMap[t.category] || 0) + Math.abs(t.amount); 
-            });
-            
+            transactions.filter(t => t.amount < 0).forEach(t => { dataMap[t.category] = (dataMap[t.category] || 0) + Math.abs(t.amount); });
             if(myChart) myChart.destroy();
             if(Object.keys(dataMap).length === 0) return;
-            
             myChart = new Chart(ctx, { 
                 type: 'doughnut', 
-                data: { 
-                    labels: Object.keys(dataMap), 
-                    datasets: [{ 
-                        data: Object.values(dataMap), 
-                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'], 
-                        borderWidth: 4 
-                    }] 
-                }, 
-                options: { 
-                    cutout: '70%', 
-                    plugins: { 
-                        legend: { position: 'bottom' } 
-                    } 
-                } 
+                data: { labels: Object.keys(dataMap), datasets: [{ data: Object.values(dataMap), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'], borderWidth: 4 }] },
+                options: { cutout: '70%', plugins: { legend: { position: 'bottom' } } }
             });
         }
 
         function toggleModal(s) {
-            if(s) { 
-                document.getElementById('report-month-picker').value = new Date().toISOString().substring(0, 7); 
-                generateMonthlyReport(); 
-            }
+            if(s) { document.getElementById('report-month-picker').value = new Date().toISOString().substring(0, 7); generateMonthlyReport(); }
             document.getElementById('report-modal').style.display = s ? 'flex' : 'none';
         }
 
         function generateMonthlyReport() {
             const [y, m] = document.getElementById('report-month-picker').value.split('-').map(Number);
-            
-            const filtered = transactions.filter(t => { 
-                const d = new Date(t.iso);
-                return (d.getMonth() + 1) === m && d.getFullYear() === y; 
-            });
-            
-            let bal = 0, inc = 0, exp = 0;
-            filtered.forEach(t => {
-                bal += t.amount;
-                if(t.amount > 0) inc += t.amount;
-                else exp += Math.abs(t.amount);
-            });
-            
-            document.getElementById('report-content').innerHTML = `
-                <div class="p-6 bg-indigo-600 rounded-3xl text-white text-center">
-                    <p class="text-4xl font-black">${bal.toLocaleString()}€</p>
-                    <p class="text-xs uppercase opacity-70">Solde Mensuel</p>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="p-4 bg-emerald-50 rounded-2xl text-center">
-                        <p class="text-xs text-emerald-600 font-bold uppercase">Revenus</p>
-                        <p class="text-2xl font-black text-emerald-700">${inc.toLocaleString()}€</p>
-                    </div>
-                    <div class="p-4 bg-rose-50 rounded-2xl text-center">
-                        <p class="text-xs text-rose-600 font-bold uppercase">Dépenses</p>
-                        <p class="text-2xl font-black text-rose-700">${exp.toLocaleString()}€</p>
-                    </div>
-                </div>
-                <div class="text-sm text-slate-600">
-                    <p class="font-bold mb-2">📊 ${filtered.length} transaction(s) ce mois</p>
-                </div>`;
+            const filtered = transactions.filter(t => { const d = new Date(t.iso); return (d.getMonth() + 1) === m && d.getFullYear() === y; });
+            let bal = 0; filtered.forEach(t => bal += t.amount);
+            document.getElementById('report-content').innerHTML = `<div class="p-6 bg-indigo-600 rounded-3xl text-white text-center"><p class="text-4xl font-black">${bal.toLocaleString()}€</p><p class="text-xs uppercase opacity-70">Solde Mensuel</p></div>`;
         }
 
         setType('expense');
