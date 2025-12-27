@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Budget Famille - Dashboard Live</title>
+    <title>Budget Famille - Dashboard Live v1.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -20,6 +20,7 @@
         .toast-msg { animation: slideUp 0.3s ease-out; }
         @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
         .cat-tag { background: #f1f5f9; color: #64748b; padding: 2px 6px; border-radius: 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-left: 4px; border: 1px solid #e2e8f0; }
+        .recurring-badge { background: #e0e7ff; color: #4338ca; padding: 2px 5px; border-radius: 4px; font-size: 8px; font-weight: 900; }
     </style>
 </head>
 <body class="bg-[#f8fafc] min-h-screen text-slate-900">
@@ -76,12 +77,18 @@
                         </div>
                         <div class="p-6 space-y-4">
                             <input type="hidden" id="edit-id">
-                            <input type="text" id="desc" placeholder="Objet" class="w-full p-4 bg-slate-50 rounded-xl outline-none text-sm font-bold border-2 border-transparent focus:border-indigo-100 transition-all">
+                            <input type="text" id="desc" placeholder="Objet (ex: Netflix, Loyer...)" class="w-full p-4 bg-slate-50 rounded-xl outline-none text-sm font-bold border-2 border-transparent focus:border-indigo-100 transition-all">
                             <input type="number" id="amount" placeholder="0.00 €" class="w-full p-4 bg-slate-50 rounded-xl text-xl font-black">
                             <div class="grid grid-cols-2 gap-2">
                                 <input type="date" id="transaction-date" class="w-full p-4 bg-slate-50 rounded-xl font-bold text-xs">
                                 <select id="category" class="w-full p-4 bg-slate-50 rounded-xl font-bold text-xs"></select>
                             </div>
+                            
+                            <div class="flex items-center gap-2 px-1">
+                                <input type="checkbox" id="is-recurring" class="w-4 h-4 rounded border-slate-300 text-indigo-600">
+                                <label for="is-recurring" class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Transaction Récurrente (Mensuel)</label>
+                            </div>
+
                             <button onclick="saveTransaction()" id="submit-btn" class="w-full py-5 rounded-xl text-white font-black bg-indigo-600 shadow-lg uppercase text-xs">Ajouter</button>
                             <button onclick="resetForm()" id="cancel-btn" class="hidden w-full py-2 rounded-xl text-slate-400 font-bold bg-slate-100 uppercase text-[10px]">Annuler</button>
                         </div>
@@ -108,12 +115,10 @@
             <div class="space-y-4 text-left">
                 <div>
                     <label class="text-[10px] font-black text-slate-400 uppercase ml-2">💰 Solde Initial (€)</label>
-                    <p class="text-[9px] text-slate-400 ml-2 mb-1">Somme présente sur votre compte au démarrage de l'app.</p>
                     <input type="number" id="setting-initial-balance" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border outline-none">
                 </div>
                 <div>
                     <label class="text-[10px] font-black text-slate-400 uppercase ml-2">📅 Limite Budget Mensuel (€)</label>
-                    <p class="text-[9px] text-slate-400 ml-2 mb-1">Montant maximum de dépenses souhaité par mois.</p>
                     <input type="number" id="setting-budget-limit" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border outline-none">
                 </div>
             </div>
@@ -154,12 +159,6 @@
                     📷 Changer Photo
                     <input type="file" id="profile-file-input" accept="image/*" class="hidden" onchange="previewProfileImage(event)">
                 </label>
-                <hr class="my-2 border-slate-100">
-                <div id="pw-change-section" class="hidden space-y-3">
-                    <input type="password" id="new-password-input" placeholder="Nouveau mot de passe" class="w-full p-4 bg-rose-50 border-rose-100 rounded-2xl font-bold border outline-none text-sm">
-                    <button onclick="updateUserPassword()" class="w-full p-3 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase">Confirmer</button>
-                </div>
-                <button onclick="document.getElementById('pw-change-section').classList.toggle('hidden')" class="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-500 transition-colors">🔐 Changer le mot de passe ?</button>
             </div>
             <div class="grid grid-cols-2 gap-2 mt-6">
                 <button onclick="toggleProfileModal(false)" class="p-4 bg-slate-100 rounded-2xl font-bold text-xs uppercase">Annuler</button>
@@ -217,14 +216,21 @@
             transactions.forEach(t => {
                 const d = new Date(t.iso);
                 const isCurrentMonth = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                
                 if(t.amount > 0) tInc += t.amount; 
                 else {
                     tExp += Math.abs(t.amount);
-                    if(isCurrentMonth) { mExp += Math.abs(t.amount); mCats[t.category] = (mCats[t.category] || 0) + Math.abs(t.amount); }
+                    if(isCurrentMonth) { 
+                        mExp += Math.abs(t.amount); 
+                        mCats[t.category] = (mCats[t.category] || 0) + Math.abs(t.amount); 
+                    }
                 }
+                
                 const icon = (t.authorIcon && t.authorIcon.includes('data:image')) ? `<img src="${t.authorIcon}" class="list-avatar">` : `<span>${t.authorIcon || '👤'}</span>`;
+                const recBadge = t.isRecurring ? `<span class="recurring-badge ml-1">🔄 RÉCURRENT</span>` : "";
+
                 list.innerHTML += `<tr><td class="p-4">
-                    <div class="font-black text-[13px] text-slate-700">${t.description}${t.isEdited ? '<span class="text-rose-500 ml-1 text-[8px]">MODIFIÉ</span>' : ''}</div>
+                    <div class="font-black text-[13px] text-slate-700">${t.description}${t.isEdited ? '<span class="text-rose-500 ml-1 text-[8px]">MODIFIÉ</span>' : ''}${recBadge}</div>
                     <div class="text-[9px] text-slate-400 font-bold uppercase mt-1 flex items-center gap-1">${t.date} • ${icon} ${t.author} <span class="cat-tag">${t.category}</span></div>
                     </td><td class="p-4 text-right">
                     <div class="font-black text-sm ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${t.amount.toLocaleString()}€</div>
@@ -243,113 +249,127 @@
             updateQuickChart(mCats);
         }
 
-        // Graphique principal (Donut sous le formulaire)
-        function updateQuickChart(catData) {
-            const ctx = document.getElementById('quickChart').getContext('2d');
-            if(quickChart) quickChart.destroy();
-            if(Object.keys(catData).length === 0) return;
-            quickChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels: Object.keys(catData), datasets: [{ data: Object.values(catData), backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4'], borderWidth: 0 }] },
-                options: { maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
+        function saveTransaction() {
+            const d = document.getElementById('desc').value, 
+                  a = parseFloat(document.getElementById('amount').value), 
+                  dt = document.getElementById('transaction-date').value, 
+                  id = document.getElementById('edit-id').value,
+                  isRec = document.getElementById('is-recurring').checked;
+
+            if(!d || isNaN(a) || !dt) return;
+
+            const tx = { 
+                id: id ? parseInt(id) : Date.now(), 
+                date: new Date(dt+'T12:00:00').toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}), 
+                iso: new Date(dt+'T12:00:00').toISOString(), 
+                description: d, 
+                amount: currentType === 'expense' ? -Math.abs(a) : Math.abs(a), 
+                category: document.getElementById('category').value, 
+                author: userProfile.name, 
+                authorIcon: userProfile.icon, 
+                isEdited: !!id,
+                isRecurring: isRec 
+            };
+
+            db.ref(`data/transactions/${tx.id}`).set(tx).then(() => { 
+                showToast(id ? "📝 MODIFIÉ" : "✅ AJOUTÉ"); 
+                resetForm(); 
             });
         }
 
-        // --- Analyse (Rapport) ---
+        // --- EXPORTS CORRIGÉS ---
+        function exportToCSV() {
+            const picker = document.getElementById('report-month-picker').value;
+            if(!picker) return;
+            const filtered = transactions.filter(t => t.iso.includes(picker));
+            let csv = "\uFEFFDate;Description;Categorie;Auteur;Montant\n";
+            filtered.forEach(t => { csv += `${t.date};${t.description};${t.category};${t.author};${t.amount}\n`; });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `Budget_${picker}.csv`;
+            link.click();
+        }
+
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const picker = document.getElementById('report-month-picker').value;
+            doc.setFontSize(18);
+            doc.text(`Rapport Budget - ${picker}`, 14, 20);
+            const rows = transactions.filter(t => t.iso.includes(picker)).map(t => [t.date, t.description, t.category, t.author, `${t.amount}€`]);
+            doc.autoTable({ startY: 30, head: [['Date', 'Description', 'Catégorie', 'Auteur', 'Montant']], body: rows });
+            doc.save(`Budget_${picker}.pdf`);
+        }
+
+        // --- AUTRES FONCTIONS ---
+        function setType(t) { 
+            currentType = t; 
+            document.getElementById('category').innerHTML = cats[t].map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('btnExp').className = t==='expense'?'flex-1 py-4 rounded-xl font-black text-[10px] uppercase bg-white border shadow-sm':'flex-1 py-4 rounded-xl font-black text-[10px] uppercase text-slate-400';
+            document.getElementById('btnInc').className = t==='income'?'flex-1 py-4 rounded-xl font-black text-[10px] uppercase bg-white border shadow-sm':'flex-1 py-4 rounded-xl font-black text-[10px] uppercase text-slate-400';
+        }
+
+        function editTx(id) { 
+            const t = transactions.find(x => x.id === id); 
+            if(!t) return; 
+            document.getElementById('edit-id').value = t.id; 
+            document.getElementById('desc').value = t.description; 
+            document.getElementById('amount').value = Math.abs(t.amount); 
+            document.getElementById('transaction-date').value = t.iso.split('T')[0]; 
+            document.getElementById('is-recurring').checked = t.isRecurring || false;
+            setType(t.amount < 0 ? 'expense' : 'income'); 
+            document.getElementById('category').value = t.category; 
+            document.getElementById('edit-indicator').classList.remove('hidden'); 
+            document.getElementById('cancel-btn').classList.remove('hidden'); 
+            document.getElementById('submit-btn').innerText = "ENREGISTRER"; 
+            window.scrollTo({top: 0, behavior: 'smooth'}); 
+        }
+
+        function resetForm() { 
+            document.getElementById('edit-id').value = ""; 
+            document.getElementById('desc').value = ""; 
+            document.getElementById('amount').value = ""; 
+            document.getElementById('is-recurring').checked = false;
+            document.getElementById('edit-indicator').classList.add('hidden'); 
+            document.getElementById('cancel-btn').classList.add('hidden'); 
+            document.getElementById('submit-btn').innerText = "AJOUTER"; 
+            document.getElementById('transaction-date').valueAsDate = new Date(); 
+        }
+
+        function deleteTx(id) { if(confirm("Supprimer ?")) db.ref(`data/transactions/${id}`).remove().then(() => showToast("🗑️ SUPPRIMÉ")); }
+        function showToast(m) { const t = document.createElement('div'); t.className = "toast-msg fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-[10px] font-black z-[99999]"; t.innerText = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
+        function toggleModal(s) { document.getElementById('report-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('report-month-picker').value = new Date().toISOString().slice(0,7); generateMonthlyReport(); } }
+        function toggleSettingsModal(s) { document.getElementById('settings-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('setting-initial-balance').value = initialBalance; document.getElementById('setting-budget-limit').value = budgetLimit; } }
+        function saveSettings() { db.ref('data').update({ initialBalance: parseFloat(document.getElementById('setting-initial-balance').value)||0, budgetLimit: parseFloat(document.getElementById('setting-budget-limit').value)||0 }).then(() => { showToast("⚙️ SAUVÉ"); toggleSettingsModal(false); }); }
+        function updateHeader() { document.getElementById('current-user-display').innerText = userProfile.name; document.getElementById('user-icon-badge').innerHTML = userProfile.icon.includes('data:image') ? `<img src="${userProfile.icon}">` : userProfile.icon; }
+        function handleLogin() { auth.signInWithEmailAndPassword(document.getElementById('email-input').value, document.getElementById('password-input').value).catch(e => alert("Erreur de connexion")); }
+        function logout() { auth.signOut().then(() => location.reload()); }
+
+        // Graphiques
+        function updateQuickChart(catData) {
+            const ctx = document.getElementById('quickChart').getContext('2d');
+            if(quickChart) quickChart.destroy();
+            quickChart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(catData), datasets: [{ data: Object.values(catData), backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#ec4899'], borderWidth: 0 }] }, options: { maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } } });
+        }
+
         function generateMonthlyReport() {
             const picker = document.getElementById('report-month-picker').value;
             if(!picker) return;
-            const [y, m] = picker.split('-');
-            const filtered = transactions.filter(t => { const d = new Date(t.iso); return d.getFullYear() == y && d.getMonth() == (m-1); });
-            let inc = 0, exp = 0, catData = {}, topExp = {amount: 0}, topInc = {amount: 0};
+            const filtered = transactions.filter(t => t.iso.includes(picker));
+            let inc = 0, exp = 0, catData = {};
             filtered.forEach(t => {
-                const val = Math.abs(t.amount);
-                if(t.amount > 0) { inc += val; if(val > topInc.amount) topInc = {desc: t.description, amount: val}; }
-                else { exp += val; catData[t.category] = (catData[t.category] || 0) + val; if(val > topExp.amount) topExp = {desc: t.description, amount: val}; }
+                if(t.amount > 0) inc += t.amount; else { exp += Math.abs(t.amount); catData[t.category] = (catData[t.category] || 0) + Math.abs(t.amount); }
             });
-            document.getElementById('report-summary').innerHTML = `
-                <div class="bg-emerald-50 p-3 rounded-2xl"><p class="text-[8px] uppercase font-bold text-emerald-600">Revenus</p><p class="font-black text-xs">+${inc.toLocaleString()}€</p></div>
-                <div class="bg-rose-50 p-3 rounded-2xl"><p class="text-[8px] uppercase font-bold text-rose-600">Dépenses</p><p class="font-black text-xs">-${exp.toLocaleString()}€</p></div>
-                <div class="bg-indigo-50 p-3 rounded-2xl"><p class="text-[8px] uppercase font-bold text-indigo-600">Solde</p><p class="font-black text-xs">${(inc-exp).toLocaleString()}€</p></div>`;
-            document.getElementById('report-tops').innerHTML = `
-                <div class="bg-slate-50 p-3 rounded-2xl border flex flex-col items-center">
-                    <p class="text-[7px] uppercase font-black text-slate-400 mb-1">Top Dépense</p>
-                    <p class="text-[9px] font-bold text-slate-700 truncate w-full text-center">${topExp.desc || '-'}</p>
-                    <p class="text-xs font-black text-rose-500">${topExp.amount ? '-' + topExp.amount : 0}€</p>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-2xl border flex flex-col items-center">
-                    <p class="text-[7px] uppercase font-black text-slate-400 mb-1">Top Revenu</p>
-                    <p class="text-[9px] font-bold text-slate-700 truncate w-full text-center">${topInc.desc || '-'}</p>
-                    <p class="text-xs font-black text-emerald-500">${topInc.amount ? '+' + topInc.amount : 0}€</p>
-                </div>`;
+            document.getElementById('report-summary').innerHTML = `<div class="bg-emerald-50 p-3 rounded-2xl"><p class="text-[8px] font-bold text-emerald-600">REVENUS</p><p class="font-black text-xs">+${inc}€</p></div><div class="bg-rose-50 p-3 rounded-2xl"><p class="text-[8px] font-bold text-rose-600">DÉPENSES</p><p class="font-black text-xs">-${exp}€</p></div><div class="bg-indigo-50 p-3 rounded-2xl"><p class="text-[8px] font-bold text-indigo-600">SOLDE</p><p class="font-black text-xs">${inc-exp}€</p></div>`;
             updateReportChart(catData);
         }
 
         function updateReportChart(data) {
             const ctx = document.getElementById('reportChart').getContext('2d');
             if(reportChart) reportChart.destroy();
-            if(Object.keys(data).length === 0) return;
-            reportChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4'], borderWidth: 0 }] },
-                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, weight: 'bold' } } } } }
-            });
+            reportChart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#ef4444'], borderWidth: 0 }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
         }
-
-        // --- Fonctions Profil & Avatar (avec compression) ---
-        let tempPhoto = null;
-        function previewProfileImage(event) {
-            const file = event.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 128; canvas.height = 128;
-                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, 128, 128);
-                    tempPhoto = canvas.toDataURL('image/jpeg', 0.7);
-                    document.getElementById('profile-preview').innerHTML = `<img src="${tempPhoto}" class="w-full h-full object-cover">`;
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function saveProfile() {
-            const newName = document.getElementById('profile-name-input').value; if(!newName) return;
-            const update = { name: newName }; if(tempPhoto) update.icon = tempPhoto;
-            db.ref(`profiles/${userProfile.emailPath}`).update(update).then(() => { showToast("👤 PROFIL SAUVEGARDÉ"); toggleProfileModal(false); });
-        }
-
-        function updateUserPassword() {
-            const newPassword = document.getElementById('new-password-input').value;
-            if (!newPassword || newPassword.length < 6) { alert("6 caractères min."); return; }
-            auth.currentUser.updatePassword(newPassword).then(() => { showToast("🔐 MDP MIS À JOUR"); document.getElementById('pw-change-section').classList.add('hidden'); }).catch(e => alert(e.message));
-        }
-
-        // --- Fonctions Techniques ---
-        function handleLogin() { auth.signInWithEmailAndPassword(document.getElementById('email-input').value, document.getElementById('password-input').value).catch(e => alert("Identifiants incorrects")); }
-        function logout() { auth.signOut().then(() => location.reload()); }
-        function setType(t) { 
-            currentType = t; document.getElementById('category').innerHTML = cats[t].map(c => `<option value="${c}">${c}</option>`).join('');
-            document.getElementById('btnExp').className = t==='expense'?'flex-1 py-4 rounded-xl font-black text-[10px] uppercase bg-white border shadow-sm':'flex-1 py-4 rounded-xl font-black text-[10px] uppercase text-slate-400';
-            document.getElementById('btnInc').className = t==='income'?'flex-1 py-4 rounded-xl font-black text-[10px] uppercase bg-white border shadow-sm':'flex-1 py-4 rounded-xl font-black text-[10px] uppercase text-slate-400';
-        }
-        function saveTransaction() {
-            const d = document.getElementById('desc').value, a = parseFloat(document.getElementById('amount').value), dt = document.getElementById('transaction-date').value, id = document.getElementById('edit-id').value;
-            if(!d || isNaN(a) || !dt) return;
-            const tx = { id: id ? parseInt(id) : Date.now(), date: new Date(dt+'T12:00:00').toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}), iso: new Date(dt+'T12:00:00').toISOString(), description: d, amount: currentType === 'expense' ? -Math.abs(a) : Math.abs(a), category: document.getElementById('category').value, author: userProfile.name, authorIcon: userProfile.icon, isEdited: !!id };
-            db.ref(`data/transactions/${tx.id}`).set(tx).then(() => { showToast(id ? "📝 MODIFIÉ" : "✅ AJOUTÉ"); resetForm(); });
-        }
-        function deleteTx(id) { if(confirm("Supprimer ?")) db.ref(`data/transactions/${id}`).remove().then(() => showToast("🗑️ SUPPRIMÉ")); }
-        function editTx(id) { const t = transactions.find(x => x.id === id); if(!t) return; document.getElementById('edit-id').value = t.id; document.getElementById('desc').value = t.description; document.getElementById('amount').value = Math.abs(t.amount); document.getElementById('transaction-date').value = t.iso.split('T')[0]; setType(t.amount < 0 ? 'expense' : 'income'); document.getElementById('category').value = t.category; document.getElementById('edit-indicator').classList.remove('hidden'); document.getElementById('cancel-btn').classList.remove('hidden'); document.getElementById('submit-btn').innerText = "ENREGISTRER"; window.scrollTo({top: 0, behavior: 'smooth'}); }
-        function resetForm() { document.getElementById('edit-id').value = ""; document.getElementById('desc').value = ""; document.getElementById('amount').value = ""; document.getElementById('edit-indicator').classList.add('hidden'); document.getElementById('cancel-btn').classList.add('hidden'); document.getElementById('submit-btn').innerText = "AJOUTER"; document.getElementById('transaction-date').valueAsDate = new Date(); }
-        function showToast(m) { const t = document.createElement('div'); t.className = "toast-msg fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-[10px] font-black z-[99999]"; t.innerText = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
-        function toggleModal(s) { document.getElementById('report-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('report-month-picker').value = new Date().toISOString().slice(0,7); generateMonthlyReport(); } }
-        function toggleProfileModal(s) { document.getElementById('profile-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('pw-change-section').classList.add('hidden'); document.getElementById('profile-name-input').value = userProfile.name; document.getElementById('profile-preview').innerHTML = userProfile.icon.includes('data:image') ? `<img src="${userProfile.icon}" class="w-full h-full object-cover">` : `<span class="text-3xl">${userProfile.icon}</span>`; } }
-        function toggleSettingsModal(s) { document.getElementById('settings-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('setting-initial-balance').value = initialBalance; document.getElementById('setting-budget-limit').value = budgetLimit; } }
-        function saveSettings() { const init = parseFloat(document.getElementById('setting-initial-balance').value) || 0; const limit = parseFloat(document.getElementById('setting-budget-limit').value) || 0; db.ref('data').update({ initialBalance: init, budgetLimit: limit }).then(() => { showToast("⚙️ SAUVÉ"); toggleSettingsModal(false); }); }
-        function updateHeader() { document.getElementById('current-user-display').innerText = userProfile.name; document.getElementById('user-icon-badge').innerHTML = userProfile.icon.includes('data:image') ? `<img src="${userProfile.icon}">` : userProfile.icon; }
 
         window.onload = () => { setType('expense'); document.getElementById('transaction-date').valueAsDate = new Date(); };
     </script>
