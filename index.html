@@ -28,10 +28,10 @@
         <div class="p-8 bg-white rounded-[2.5rem] shadow-2xl text-center max-w-sm w-full mx-4 border">
             <h2 class="text-2xl font-black mb-6 italic text-indigo-600">Budget Famille</h2>
             <div class="space-y-3 mb-6">
-                <input type="email" id="email-input" placeholder="Email" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 text-sm">
-                <input type="password" id="password-input" placeholder="Mot de passe" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 text-sm">
+                <input type="email" id="email-input" placeholder="Email" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 text-sm font-bold">
+                <input type="password" id="password-input" placeholder="Mot de passe" class="w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 text-sm font-bold">
             </div>
-            <button onclick="handleLogin()" class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black shadow-lg">CONNEXION</button>
+            <button onclick="handleLogin()" class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black shadow-lg uppercase text-sm">Connexion</button>
         </div>
     </div>
 
@@ -61,18 +61,9 @@
             </header>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-                <div class="bg-white p-6 rounded-[2.5rem] border text-center">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase">Solde Global</p>
-                    <h3 class="text-2xl font-black text-indigo-600" id="totalBalance">0 €</h3>
-                </div>
-                <div class="bg-emerald-500 p-6 rounded-[2.5rem] text-white text-center">
-                    <p class="text-[10px] font-bold opacity-80 uppercase">Revenus</p>
-                    <h3 class="text-2xl font-black" id="totalIncomes">0 €</h3>
-                </div>
-                <div class="bg-rose-500 p-6 rounded-[2.5rem] text-white text-center">
-                    <p class="text-[10px] font-bold opacity-80 uppercase">Dépenses</p>
-                    <h3 class="text-2xl font-black" id="totalExpenses">0 €</h3>
-                </div>
+                <div class="bg-white p-6 rounded-[2.5rem] border text-center shadow-sm"><p class="text-[10px] font-bold text-slate-400 uppercase">Solde Global</p><h3 class="text-2xl font-black text-indigo-600" id="totalBalance">0 €</h3></div>
+                <div class="bg-emerald-500 p-6 rounded-[2.5rem] text-white text-center"><p class="text-[10px] font-bold opacity-80 uppercase">Revenus</p><h3 class="text-2xl font-black" id="totalIncomes">0 €</h3></div>
+                <div class="bg-rose-500 p-6 rounded-[2.5rem] text-white text-center"><p class="text-[10px] font-bold opacity-80 uppercase">Dépenses</p><h3 class="text-2xl font-black" id="totalExpenses">0 €</h3></div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -95,19 +86,16 @@
                             <button onclick="resetForm()" id="cancel-btn" class="hidden w-full py-2 rounded-xl text-slate-400 font-bold bg-slate-100 uppercase text-[10px]">Annuler</button>
                         </div>
                     </div>
+                    
                     <div class="bg-white rounded-[2rem] p-6 border shadow-sm">
                         <h4 class="text-[10px] font-black uppercase text-slate-400 mb-4 text-center tracking-widest">Répartition ce mois</h4>
-                        <div class="h-[200px] relative">
-                            <canvas id="quickChart"></canvas>
-                        </div>
+                        <div class="h-[200px] relative"><canvas id="quickChart"></canvas></div>
                     </div>
                 </div>
 
                 <div class="lg:col-span-2">
                     <div class="bg-white rounded-[2rem] border shadow-sm overflow-hidden min-h-[500px]">
-                        <table class="w-full text-left">
-                            <tbody id="transactionList" class="divide-y divide-slate-50"></tbody>
-                        </table>
+                        <table class="w-full text-left"><tbody id="transactionList" class="divide-y divide-slate-50"></tbody></table>
                     </div>
                 </div>
             </div>
@@ -119,11 +107,13 @@
             <h2 class="text-xl font-black mb-6 uppercase">Configuration</h2>
             <div class="space-y-4 text-left">
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Solde Initial (€)</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">💰 Solde Initial (€)</label>
+                    <p class="text-[9px] text-slate-400 ml-2 mb-1">Somme présente sur votre compte au démarrage de l'app.</p>
                     <input type="number" id="setting-initial-balance" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border outline-none">
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Limite Budget Mensuel (€)</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">📅 Limite Budget Mensuel (€)</label>
+                    <p class="text-[9px] text-slate-400 ml-2 mb-1">Montant maximum de dépenses souhaité par mois.</p>
                     <input type="number" id="setting-budget-limit" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border outline-none">
                 </div>
             </div>
@@ -139,14 +129,12 @@
             <h2 class="text-xl font-black uppercase mb-4 text-center">Analyse Mensuelle</h2>
             <div class="overflow-y-auto space-y-6 px-1">
                 <input type="month" id="report-month-picker" onchange="generateMonthlyReport()" class="w-full p-4 bg-indigo-50 rounded-2xl font-black text-center text-indigo-600 border-none outline-none">
-                
                 <div id="report-summary" class="grid grid-cols-3 gap-2 text-center"></div>
-
+                <div id="report-tops" class="grid grid-cols-2 gap-2"></div>
                 <div class="bg-slate-50 p-6 rounded-[2.5rem] border">
                     <h3 class="text-[10px] font-black uppercase text-slate-400 text-center mb-4 tracking-tighter">Répartition des dépenses</h3>
                     <div class="h-[280px]"><canvas id="reportChart"></canvas></div>
                 </div>
-
                 <div class="grid grid-cols-2 gap-2">
                     <button onclick="exportToPDF()" class="bg-rose-100 text-rose-600 p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest">📄 Export PDF</button>
                     <button onclick="exportToCSV()" class="bg-emerald-100 text-emerald-600 p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest">📊 Export CSV</button>
@@ -158,14 +146,20 @@
 
     <div id="profile-modal" class="modal-overlay" style="display:none;">
         <div class="p-8 bg-white rounded-[3rem] shadow-2xl border w-full max-w-sm mx-4 text-center">
-            <h2 class="text-xl font-black mb-6 uppercase">Modifier Profil</h2>
+            <h2 class="text-xl font-black mb-6 uppercase tracking-widest">Modifier Profil</h2>
             <div id="profile-preview" class="w-24 h-24 rounded-2xl bg-indigo-100 mx-auto mb-4 overflow-hidden border-2 border-indigo-500 flex items-center justify-center"></div>
-            <div class="space-y-4">
-                <input type="text" id="profile-name-input" placeholder="Pseudo" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border">
-                <label class="block w-full p-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-xs uppercase cursor-pointer">
+            <div class="space-y-3">
+                <input type="text" id="profile-name-input" placeholder="Pseudo" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border outline-none">
+                <label class="block w-full p-4 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] uppercase cursor-pointer">
                     📷 Changer Photo
                     <input type="file" id="profile-file-input" accept="image/*" class="hidden" onchange="previewProfileImage(event)">
                 </label>
+                <hr class="my-2 border-slate-100">
+                <div id="pw-change-section" class="hidden space-y-3">
+                    <input type="password" id="new-password-input" placeholder="Nouveau mot de passe" class="w-full p-4 bg-rose-50 border-rose-100 rounded-2xl font-bold border outline-none text-sm">
+                    <button onclick="updateUserPassword()" class="w-full p-3 bg-rose-500 text-white rounded-xl font-black text-[10px] uppercase">Confirmer</button>
+                </div>
+                <button onclick="document.getElementById('pw-change-section').classList.toggle('hidden')" class="text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-500 transition-colors">🔐 Changer le mot de passe ?</button>
             </div>
             <div class="grid grid-cols-2 gap-2 mt-6">
                 <button onclick="toggleProfileModal(false)" class="p-4 bg-slate-100 rounded-2xl font-bold text-xs uppercase">Annuler</button>
@@ -209,6 +203,9 @@
                     transactions = Object.values(raw).filter(t => t && t.id).sort((a,b) => b.id - a.id);
                     updateUI();
                 });
+            } else {
+                document.getElementById('auth-screen').style.display = 'flex';
+                document.getElementById('app-content').style.display = 'none';
             }
         });
 
@@ -216,6 +213,7 @@
             const list = document.getElementById('transactionList');
             let tInc = 0, tExp = 0, mExp = 0, mCats = {};
             list.innerHTML = ""; const now = new Date();
+            
             transactions.forEach(t => {
                 const d = new Date(t.iso);
                 const isCurrentMonth = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -235,6 +233,7 @@
                         <button onclick="deleteTx(${t.id})" class="text-[10px]">🗑️</button>
                     </div></td></tr>`;
             });
+            
             document.getElementById('totalBalance').innerText = (initialBalance + tInc - tExp).toLocaleString() + " €";
             document.getElementById('totalIncomes').innerText = tInc.toLocaleString() + " €";
             document.getElementById('totalExpenses').innerText = tExp.toLocaleString() + " €";
@@ -244,70 +243,7 @@
             updateQuickChart(mCats);
         }
 
-        function generateMonthlyReport() {
-            const picker = document.getElementById('report-month-picker').value;
-            if(!picker) return;
-            const [y, m] = picker.split('-');
-            const filtered = transactions.filter(t => {
-                const d = new Date(t.iso);
-                return d.getFullYear() == y && d.getMonth() == (m-1);
-            });
-            let inc = 0, exp = 0, cats = {};
-            filtered.forEach(t => {
-                if(t.amount > 0) inc += t.amount; else {
-                    exp += Math.abs(t.amount);
-                    cats[t.category] = (cats[t.category] || 0) + Math.abs(t.amount);
-                }
-            });
-            document.getElementById('report-summary').innerHTML = `
-                <div class="bg-emerald-50 p-3 rounded-2xl"><p class="text-[8px] uppercase font-bold text-emerald-600">Revenus</p><p class="font-black text-xs">+${inc}€</p></div>
-                <div class="bg-rose-50 p-3 rounded-2xl"><p class="text-[8px] uppercase font-bold text-rose-600">Dépenses</p><p class="font-black text-xs">-${exp}€</p></div>
-                <div class="bg-indigo-50 p-3 rounded-2xl"><p class="text-[8px] uppercase font-bold text-indigo-600">Reste</p><p class="font-black text-xs">${inc-exp}€</p></div>`;
-            updateReportChart(cats);
-        }
-
-        function updateReportChart(data) {
-            const ctx = document.getElementById('reportChart').getContext('2d');
-            if(reportChart) reportChart.destroy();
-            if(Object.keys(data).length === 0) return;
-            reportChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: { 
-                    labels: Object.keys(data), 
-                    datasets: [{ 
-                        data: Object.values(data), 
-                        backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4'],
-                        borderWidth: 0 
-                    }] 
-                },
-                options: { 
-                    maintainAspectRatio: false, 
-                    plugins: { 
-                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, weight: 'bold' } } } 
-                    } 
-                }
-            });
-        }
-
-        function exportToPDF() {
-            const { jsPDF } = window.jspdf; const doc = new jsPDF();
-            const month = document.getElementById('report-month-picker').value;
-            doc.setFontSize(18); doc.text(`Rapport Mensuel : ${month}`, 14, 20);
-            const filtered = transactions.filter(t => t.iso.startsWith(month));
-            const rows = filtered.map(t => [t.date, t.description, t.category, t.amount + "€", t.author]);
-            doc.autoTable({ head: [['Date', 'Objet', 'Catégorie', 'Montant', 'Auteur']], body: rows, startY: 30 });
-            doc.save(`budget_${month}.pdf`);
-        }
-
-        function exportToCSV() {
-            const month = document.getElementById('report-month-picker').value;
-            let csv = "Date,Objet,Categorie,Montant,Auteur\n";
-            transactions.filter(t => t.iso.startsWith(month)).forEach(t => csv += `${t.date},${t.description},${t.category},${t.amount},${t.author}\n`);
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `budget_${month}.csv`; a.click();
-        }
-
+        // Graphique principal (Donut sous le formulaire)
         function updateQuickChart(catData) {
             const ctx = document.getElementById('quickChart').getContext('2d');
             if(quickChart) quickChart.destroy();
@@ -319,67 +255,102 @@
             });
         }
 
-        function saveTransaction() {
-            const d = document.getElementById('desc').value, a = parseFloat(document.getElementById('amount').value), dt = document.getElementById('transaction-date').value, id = document.getElementById('edit-id').value;
-            if(!d || isNaN(a) || !dt) return;
-            const tx = {
-                id: id ? parseInt(id) : Date.now(),
-                date: new Date(dt+'T12:00:00').toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
-                iso: new Date(dt+'T12:00:00').toISOString(),
-                description: d,
-                amount: currentType === 'expense' ? -Math.abs(a) : Math.abs(a),
-                category: document.getElementById('category').value,
-                author: userProfile.name,
-                authorIcon: userProfile.icon,
-                isEdited: !!id
-            };
-            db.ref(`data/transactions/${tx.id}`).set(tx).then(() => { showToast(id ? "📝 MODIFIÉ" : "✅ AJOUTÉ"); resetForm(); });
+        // --- Analyse (Rapport) ---
+        function generateMonthlyReport() {
+            const picker = document.getElementById('report-month-picker').value;
+            if(!picker) return;
+            const [y, m] = picker.split('-');
+            const filtered = transactions.filter(t => { const d = new Date(t.iso); return d.getFullYear() == y && d.getMonth() == (m-1); });
+            let inc = 0, exp = 0, catData = {}, topExp = {amount: 0}, topInc = {amount: 0};
+            filtered.forEach(t => {
+                const val = Math.abs(t.amount);
+                if(t.amount > 0) { inc += val; if(val > topInc.amount) topInc = {desc: t.description, amount: val}; }
+                else { exp += val; catData[t.category] = (catData[t.category] || 0) + val; if(val > topExp.amount) topExp = {desc: t.description, amount: val}; }
+            });
+            document.getElementById('report-summary').innerHTML = `
+                <div class="bg-emerald-50 p-3 rounded-2xl"><p class="text-[8px] uppercase font-bold text-emerald-600">Revenus</p><p class="font-black text-xs">+${inc.toLocaleString()}€</p></div>
+                <div class="bg-rose-50 p-3 rounded-2xl"><p class="text-[8px] uppercase font-bold text-rose-600">Dépenses</p><p class="font-black text-xs">-${exp.toLocaleString()}€</p></div>
+                <div class="bg-indigo-50 p-3 rounded-2xl"><p class="text-[8px] uppercase font-bold text-indigo-600">Solde</p><p class="font-black text-xs">${(inc-exp).toLocaleString()}€</p></div>`;
+            document.getElementById('report-tops').innerHTML = `
+                <div class="bg-slate-50 p-3 rounded-2xl border flex flex-col items-center">
+                    <p class="text-[7px] uppercase font-black text-slate-400 mb-1">Top Dépense</p>
+                    <p class="text-[9px] font-bold text-slate-700 truncate w-full text-center">${topExp.desc || '-'}</p>
+                    <p class="text-xs font-black text-rose-500">${topExp.amount ? '-' + topExp.amount : 0}€</p>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-2xl border flex flex-col items-center">
+                    <p class="text-[7px] uppercase font-black text-slate-400 mb-1">Top Revenu</p>
+                    <p class="text-[9px] font-bold text-slate-700 truncate w-full text-center">${topInc.desc || '-'}</p>
+                    <p class="text-xs font-black text-emerald-500">${topInc.amount ? '+' + topInc.amount : 0}€</p>
+                </div>`;
+            updateReportChart(catData);
         }
 
-        function toggleSettingsModal(s) { document.getElementById('settings-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('setting-initial-balance').value = initialBalance; document.getElementById('setting-budget-limit').value = budgetLimit; } }
-        function saveSettings() {
-            const init = parseFloat(document.getElementById('setting-initial-balance').value) || 0;
-            const limit = parseFloat(document.getElementById('setting-budget-limit').value) || 0;
-            db.ref('data').update({ initialBalance: init, budgetLimit: limit }).then(() => { showToast("⚙️ CONFIGURATION SAUVÉE"); toggleSettingsModal(false); });
+        function updateReportChart(data) {
+            const ctx = document.getElementById('reportChart').getContext('2d');
+            if(reportChart) reportChart.destroy();
+            if(Object.keys(data).length === 0) return;
+            reportChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4'], borderWidth: 0 }] },
+                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, weight: 'bold' } } } } }
+            });
         }
-        function editTx(id) {
-            const t = transactions.find(x => x.id === id); if(!t) return;
-            document.getElementById('edit-id').value = t.id; document.getElementById('desc').value = t.description;
-            document.getElementById('amount').value = Math.abs(t.amount); document.getElementById('transaction-date').value = t.iso.split('T')[0];
-            setType(t.amount < 0 ? 'expense' : 'income'); document.getElementById('category').value = t.category;
-            document.getElementById('edit-indicator').classList.remove('hidden'); document.getElementById('cancel-btn').classList.remove('hidden');
-            document.getElementById('submit-btn').innerText = "ENREGISTRER"; window.scrollTo({top: 0, behavior: 'smooth'});
-        }
-        function resetForm() {
-            document.getElementById('edit-id').value = ""; document.getElementById('desc').value = ""; document.getElementById('amount').value = "";
-            document.getElementById('edit-indicator').classList.add('hidden'); document.getElementById('cancel-btn').classList.add('hidden');
-            document.getElementById('submit-btn').innerText = "AJOUTER"; document.getElementById('transaction-date').valueAsDate = new Date();
-        }
-        function previewProfileImage(event) {
-            const reader = new FileReader(); reader.onload = (e) => { document.getElementById('profile-preview').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover">`; tempPhoto = e.target.result; };
-            reader.readAsDataURL(event.target.files[0]);
-        }
+
+        // --- Fonctions Profil & Avatar (avec compression) ---
         let tempPhoto = null;
+        function previewProfileImage(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 128; canvas.height = 128;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, 128, 128);
+                    tempPhoto = canvas.toDataURL('image/jpeg', 0.7);
+                    document.getElementById('profile-preview').innerHTML = `<img src="${tempPhoto}" class="w-full h-full object-cover">`;
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
         function saveProfile() {
             const newName = document.getElementById('profile-name-input').value; if(!newName) return;
             const update = { name: newName }; if(tempPhoto) update.icon = tempPhoto;
-            db.ref(`profiles/${userProfile.emailPath}`).update(update).then(() => { showToast("👤 PROFIL À JOUR"); toggleProfileModal(false); });
+            db.ref(`profiles/${userProfile.emailPath}`).update(update).then(() => { showToast("👤 PROFIL SAUVEGARDÉ"); toggleProfileModal(false); });
         }
-        function toggleProfileModal(s) {
-            document.getElementById('profile-modal').style.display = s ? 'flex' : 'none';
-            if(s) { document.getElementById('profile-name-input').value = userProfile.name; document.getElementById('profile-preview').innerHTML = userProfile.icon.includes('data:image') ? `<img src="${userProfile.icon}" class="w-full h-full object-cover">` : `<span class="text-3xl">${userProfile.icon}</span>`; }
+
+        function updateUserPassword() {
+            const newPassword = document.getElementById('new-password-input').value;
+            if (!newPassword || newPassword.length < 6) { alert("6 caractères min."); return; }
+            auth.currentUser.updatePassword(newPassword).then(() => { showToast("🔐 MDP MIS À JOUR"); document.getElementById('pw-change-section').classList.add('hidden'); }).catch(e => alert(e.message));
         }
-        function showToast(m) { const t = document.createElement('div'); t.className = "toast-msg fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-[10px] font-black z-[99999]"; t.innerText = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
+
+        // --- Fonctions Techniques ---
+        function handleLogin() { auth.signInWithEmailAndPassword(document.getElementById('email-input').value, document.getElementById('password-input').value).catch(e => alert("Identifiants incorrects")); }
+        function logout() { auth.signOut().then(() => location.reload()); }
         function setType(t) { 
             currentType = t; document.getElementById('category').innerHTML = cats[t].map(c => `<option value="${c}">${c}</option>`).join('');
             document.getElementById('btnExp').className = t==='expense'?'flex-1 py-4 rounded-xl font-black text-[10px] uppercase bg-white border shadow-sm':'flex-1 py-4 rounded-xl font-black text-[10px] uppercase text-slate-400';
             document.getElementById('btnInc').className = t==='income'?'flex-1 py-4 rounded-xl font-black text-[10px] uppercase bg-white border shadow-sm':'flex-1 py-4 rounded-xl font-black text-[10px] uppercase text-slate-400';
         }
-        function deleteTx(id) { if(confirm("Supprimer ?")) db.ref(`data/transactions/${id}`).remove(); }
-        function handleLogin() { auth.signInWithEmailAndPassword(document.getElementById('email-input').value, document.getElementById('password-input').value).catch(e => alert("Erreur")); }
-        function logout() { auth.signOut().then(() => location.reload()); }
+        function saveTransaction() {
+            const d = document.getElementById('desc').value, a = parseFloat(document.getElementById('amount').value), dt = document.getElementById('transaction-date').value, id = document.getElementById('edit-id').value;
+            if(!d || isNaN(a) || !dt) return;
+            const tx = { id: id ? parseInt(id) : Date.now(), date: new Date(dt+'T12:00:00').toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}), iso: new Date(dt+'T12:00:00').toISOString(), description: d, amount: currentType === 'expense' ? -Math.abs(a) : Math.abs(a), category: document.getElementById('category').value, author: userProfile.name, authorIcon: userProfile.icon, isEdited: !!id };
+            db.ref(`data/transactions/${tx.id}`).set(tx).then(() => { showToast(id ? "📝 MODIFIÉ" : "✅ AJOUTÉ"); resetForm(); });
+        }
+        function deleteTx(id) { if(confirm("Supprimer ?")) db.ref(`data/transactions/${id}`).remove().then(() => showToast("🗑️ SUPPRIMÉ")); }
+        function editTx(id) { const t = transactions.find(x => x.id === id); if(!t) return; document.getElementById('edit-id').value = t.id; document.getElementById('desc').value = t.description; document.getElementById('amount').value = Math.abs(t.amount); document.getElementById('transaction-date').value = t.iso.split('T')[0]; setType(t.amount < 0 ? 'expense' : 'income'); document.getElementById('category').value = t.category; document.getElementById('edit-indicator').classList.remove('hidden'); document.getElementById('cancel-btn').classList.remove('hidden'); document.getElementById('submit-btn').innerText = "ENREGISTRER"; window.scrollTo({top: 0, behavior: 'smooth'}); }
+        function resetForm() { document.getElementById('edit-id').value = ""; document.getElementById('desc').value = ""; document.getElementById('amount').value = ""; document.getElementById('edit-indicator').classList.add('hidden'); document.getElementById('cancel-btn').classList.add('hidden'); document.getElementById('submit-btn').innerText = "AJOUTER"; document.getElementById('transaction-date').valueAsDate = new Date(); }
+        function showToast(m) { const t = document.createElement('div'); t.className = "toast-msg fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-[10px] font-black z-[99999]"; t.innerText = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2500); }
         function toggleModal(s) { document.getElementById('report-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('report-month-picker').value = new Date().toISOString().slice(0,7); generateMonthlyReport(); } }
+        function toggleProfileModal(s) { document.getElementById('profile-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('pw-change-section').classList.add('hidden'); document.getElementById('profile-name-input').value = userProfile.name; document.getElementById('profile-preview').innerHTML = userProfile.icon.includes('data:image') ? `<img src="${userProfile.icon}" class="w-full h-full object-cover">` : `<span class="text-3xl">${userProfile.icon}</span>`; } }
+        function toggleSettingsModal(s) { document.getElementById('settings-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('setting-initial-balance').value = initialBalance; document.getElementById('setting-budget-limit').value = budgetLimit; } }
+        function saveSettings() { const init = parseFloat(document.getElementById('setting-initial-balance').value) || 0; const limit = parseFloat(document.getElementById('setting-budget-limit').value) || 0; db.ref('data').update({ initialBalance: init, budgetLimit: limit }).then(() => { showToast("⚙️ SAUVÉ"); toggleSettingsModal(false); }); }
         function updateHeader() { document.getElementById('current-user-display').innerText = userProfile.name; document.getElementById('user-icon-badge').innerHTML = userProfile.icon.includes('data:image') ? `<img src="${userProfile.icon}">` : userProfile.icon; }
+
         window.onload = () => { setType('expense'); document.getElementById('transaction-date').valueAsDate = new Date(); };
     </script>
 </body>
