@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Budget Pro - Dashboard Desktop</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif;
+            background: url('logo.jpg') no-repeat center center fixed;
+            background-size: cover;
+            overflow: hidden;
+        }
+
+        /* Effet de flou sur les panneaux pour faire ressortir le fond logo.jpg */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        .sidebar {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Personnalisation de la scrollbar pour le tableau */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="auth-screen" class="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/80 backdrop-blur-md hidden">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md border border-white/20">
+            <div class="text-center mb-8">
+                <img src="logo.jpg" alt="Logo" class="w-20 h-20 mx-auto mb-4 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-black uppercase tracking-tighter">Budget Pro <span class="text-indigo-600">PC</span></h2>
+                <p class="text-slate-400 text-sm font-medium">Accès sécurisé à vos comptes</p>
+            </div>
+            <div class="space-y-4">
+                <input type="email" id="loginEmail" placeholder="Email" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                <input type="password" id="loginPassword" placeholder="Mot de passe" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                <button onclick="login()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95">Se connecter</button>
+                <p id="authError" class="text-rose-500 text-xs text-center font-bold hidden italic"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-content" class="flex min-h-screen opacity-0 transition-opacity duration-700">
+        
+        <aside class="sidebar w-72 text-white p-8 flex flex-col justify-between fixed h-full z-50">
+            <div>
+                <div class="flex flex-col items-center mb-12">
+                    <img src="logo.jpg" class="w-16 h-16 rounded-xl border-2 border-indigo-500/50 mb-3 shadow-lg" alt="App Logo">
+                    <span class="text-lg font-black tracking-tighter italic">BUDGET <span class="text-indigo-400">PRO</span></span>
+                </div>
+                <nav class="space-y-3">
+                    <button class="flex items-center gap-4 w-full p-4 bg-indigo-600 rounded-2xl font-bold transition shadow-lg shadow-indigo-900/40 hover:scale-105"><span>🏠</span> Dashboard</button>
+                    <label class="flex items-center gap-4 w-full p-4 hover:bg-slate-800 rounded-2xl font-medium cursor-pointer transition group">
+                        <span class="group-hover:scale-125 transition">📥</span> Importer CSV
+                        <input type="file" id="csvFile" class="hidden" accept=".csv" onchange="handleCSV(this.files)">
+                    </label>
+                </nav>
+            </div>
+            <div class="bg-slate-800/50 p-4 rounded-2xl border border-white/5">
+                <p id="userTag" class="text-[10px] text-slate-400 mb-2 truncate font-black uppercase tracking-widest italic">Chargement...</p>
+                <button onclick="logout()" class="text-rose-400 text-[10px] font-black uppercase tracking-widest hover:text-rose-300 flex items-center gap-2"><span>🚪</span> Déconnexion</button>
+            </div>
+        </aside>
+
+        <main class="ml-72 flex-1 p-10 h-screen overflow-y-auto custom-scroll">
+            <header class="flex justify-between items-end mb-10">
+                <div>
+                    <h2 class="text-5xl font-black text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] uppercase tracking-tighter">Vue d'ensemble</h2>
+                    <p class="text-white font-bold opacity-90 italic">Analyse de vos flux financiers en temps réel</p>
+                </div>
+                <div class="glass-panel py-5 px-12 text-center transform hover:scale-105 transition">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Solde Actuel Global</p>
+                    <p id="totalBalance" class="text-4xl font-black text-indigo-600">0.00 €</p>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                <div class="glass-panel col-span-2 p-8 h-[400px]">
+                    <h3 class="font-black text-slate-400 uppercase text-[10px] tracking-widest mb-6">📈 Courbe d'évolution</h3>
+                    <div class="h-[300px]"><canvas id="evolutionChart"></canvas></div>
+                </div>
+                <div class="glass-panel p-8 h-[400px]">
+                    <h3 class="font-black text-slate-400 uppercase text-[10px] tracking-widest mb-6">🍰 Répartition Dépenses</h3>
+                    <div class="h-[300px]"><canvas id="pieChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="glass-panel col-span-2 p-8 mb-10">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="font-black text-slate-800 uppercase text-xs tracking-widest">Dernières opérations</h3>
+                        <span class="text-[10px] bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full font-bold uppercase">Synchronisé</span>
+                    </div>
+                    <div class="overflow-x-auto max-h-[400px] custom-scroll">
+                        <table class="w-full text-left">
+                            <thead class="sticky top-0 bg-white/50 backdrop-blur-sm text-[10px] uppercase text-slate-400 border-b">
+                                <tr>
+                                    <th class="py-3">Date</th>
+                                    <th class="py-3">Description</th>
+                                    <th class="py-3">Catégorie</th>
+                                    <th class="py-3 text-right pr-4">Montant</th>
+                                </tr>
+                            </thead>
+                            <tbody id="txTable" class="text-sm divide-y divide-slate-100">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="dropZone" class="glass-panel flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-indigo-200 hover:border-indigo-500 transition-all cursor-pointer group h-full mb-10">
+                    <div class="text-6xl mb-6 group-hover:scale-125 transition transform">📂</div>
+                    <p class="font-black text-slate-700 uppercase text-sm tracking-tight">Glisser votre relevé CSV</p>
+                    <p class="text-[10px] text-slate-400 mt-3 font-medium italic">Traitement automatique des lignes bancaires</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- CONFIG FIREBASE (Assurez-vous qu'elles sont identiques à index.html) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDxBlFg_z1gWM-O9lHH0UdqLmqRyno7Eys",
+            authDomain: "budget-20988.firebaseapp.com",
+            databaseURL: "https://budget-20988-default-rtdb.europe-west1.firebasedatabase.app/",
+            projectId: "budget-20988",
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        let transactions = [], initialBalance = 0;
+        let chartLine, chartPie;
+
+        // --- AUTHENTIFICATION ---
+        auth.onAuthStateChanged(user => {
+            const authScreen = document.getElementById('auth-screen');
+            const appContent = document.getElementById('app-content');
+            if (user) {
+                authScreen.classList.add('hidden');
+                appContent.classList.remove('opacity-0');
+                document.getElementById('userTag').innerText = "📍 " + user.email.toUpperCase();
+                syncData();
+            } else {
+                authScreen.classList.remove('hidden');
+                appContent.classList.add('opacity-0');
+            }
+        });
+
+        function login() {
+            const email = document.getElementById('loginEmail').value;
+            const pass = document.getElementById('loginPassword').value;
+            auth.signInWithEmailAndPassword(email, pass).catch(err => {
+                const errBox = document.getElementById('authError');
+                errBox.innerText = "❌ Échec : Vérifiez vos identifiants";
+                errBox.classList.remove('hidden');
+            });
+        }
+
+        function logout() { auth.signOut(); }
+
+        // --- SYNCHRONISATION ---
+        function syncData() {
+            db.ref('data').on('value', snap => {
+                const data = snap.val() || {};
+                initialBalance = parseFloat(data.initialBalance) || 0;
+                const txObj = data.transactions || {};
+                // Tri par date décroissante
+                transactions = Object.values(txObj).sort((a,b) => new Date(b.iso) - new Date(a.iso));
+                render();
+            });
+        }
+
+        function render() {
+            let total = initialBalance;
+            const table = document.getElementById('txTable');
+            table.innerHTML = '';
+            const catStats = {};
+
+            // Inverser pour calculer le solde progressif
+            const sortedForCalc = [...transactions].reverse();
+            let runningBalance = initialBalance;
+            const balanceHistory = [];
+
+            sortedForCalc.forEach(t => {
+                runningBalance += t.amount;
+                balanceHistory.push(runningBalance);
+                if(t.amount < 0) catStats[t.category] = (catStats[t.category] || 0) + Math.abs(t.amount);
+            });
+
+            transactions.forEach(t => {
+                table.innerHTML += `
+                    <tr class="hover:bg-indigo-50/50 transition duration-150">
+                        <td class="py-4 text-slate-400 font-bold text-[11px] uppercase">${t.date}</td>
+                        <td class="py-4 font-black text-slate-700 tracking-tight">${t.description}</td>
+                        <td class="py-4"><span class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase border border-indigo-100">${t.category}</span></td>
+                        <td class="py-4 text-right font-black pr-4 ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${t.amount.toFixed(2)} €</td>
+                    </tr>`;
+            });
+
+            document.getElementById('totalBalance').innerText = runningBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + " €";
+            updateCharts(catStats, balanceHistory);
+        }
+
+        function updateCharts(catStats, balanceHistory) {
+            // Chart Doughnut (Dépenses)
+            const ctxPie = document.getElementById('pieChart').getContext('2d');
+            if(chartPie) chartPie.destroy();
+            chartPie = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(catStats),
+                    datasets: [{
+                        data: Object.values(catStats),
+                        backgroundColor: ['#6366f1', '#f43f5e', '#f59e0b', '#10b981', '#8b5cf6', '#3b82f6'],
+                        hoverOffset: 20,
+                        borderWidth: 0
+                    }]
+                },
+                options: { 
+                    maintainAspectRatio: false, 
+                    cutout: '70%',
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, padding: 20, font: { size: 10, weight: 'bold' } } } } 
+                }
+            });
+
+            // Chart Line (Évolution)
+            const ctxLine = document.getElementById('evolutionChart').getContext('2d');
+            if(chartLine) chartLine.destroy();
+            chartLine = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: balanceHistory.map((_, i) => i + 1),
+                    datasets: [{
+                        data: balanceHistory,
+                        borderColor: '#6366f1',
+                        borderWidth: 4,
+                        pointRadius: 0,
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: (context) => {
+                            const ctx = context.chart.ctx;
+                            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                            gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+                            gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+                            return gradient;
+                        }
+                    }]
+                },
+                options: { 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        y: { ticks: { font: { size: 10 } }, grid: { color: '#f1f5f9' } }, 
+                        x: { display: false } 
+                    } 
+                }
+            });
+        }
+
+        // --- TESTS & GESTION CSV ---
+        const dropZone = document.getElementById('dropZone');
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('bg-indigo-50'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-indigo-50'));
+        dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('bg-indigo-50'); handleCSV(e.dataTransfer.files); });
+
+        function handleCSV(files) {
+            const file = files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const lines = e.target.result.split('\n').slice(1);
+                let count = 0;
+                lines.forEach(line => {
+                    const parts = line.split(';');
+                    if(parts.length >= 3 && parts[1] !== "") {
+                        const id = Date.now() + Math.floor(Math.random()*9999);
+                        db.ref(`data/transactions/${id}`).set({
+                            id: id, 
+                            date: parts[0], 
+                            iso: new Date().toISOString(),
+                            description: parts[1], 
+                            amount: parseFloat(parts[2].replace(',', '.')),
+                            category: "Import PC", 
+                            author: "Admin PC", 
+                            authorIcon: "🖥️"
+                        });
+                        count++;
+                    }
+                });
+                alert(count + " transactions importées !");
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
