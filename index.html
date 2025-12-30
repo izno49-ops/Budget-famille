@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Budget Famille - v2.0 Évolutions Complètes</title>
+    <title>Budget Famille - v2.1</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -11,6 +18,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    
     <style>
         input, select, button { -webkit-appearance: none; border-radius: 0; font-size: 16px !important; touch-action: manipulation; }
         .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(8px); }
@@ -24,6 +32,8 @@
         .filter-tag { background: #e0e7ff; color: #4338ca; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 800; cursor: pointer; transition: all 0.2s; }
         .filter-tag:hover { background: #c7d2fe; }
         .filter-tag.active { background: #4338ca; color: white; }
+        .history-badge { background: #fef3c7; color: #92400e; padding: 2px 5px; border-radius: 4px; font-size: 8px; font-weight: 900; cursor: pointer; }
+        .history-badge:hover { background: #fde68a; }
     </style>
 </head>
 <body class="bg-[#f8fafc] min-h-screen text-slate-900 font-sans">
@@ -84,15 +94,13 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div class="space-y-6">
-                    <!-- Graphique d'évolution du solde -->
                     <div class="bg-white rounded-[2.5rem] shadow-xl border overflow-hidden p-6">
-                        <h3 class="text-[10px] font-black text-slate-400 uppercase mb-4 text-center">📈 Évolution du Solde (6 mois)</h3>
+                        <h3 class="text-[10px] font-black text-slate-400 uppercase mb-4 text-center">📈 Évolution du Solde</h3>
                         <div class="h-[200px]"><canvas id="evolutionChart"></canvas></div>
                     </div>
 
-                    <!-- Formulaire de transaction -->
                     <div class="bg-white rounded-[2.5rem] shadow-xl border overflow-hidden p-6 relative">
-                        <div id="recurrence-indicator" class="hidden absolute top-0 left-0 w-full bg-indigo-600 text-white text-[9px] font-black text-center py-1 uppercase pulse-recur">Mode Abonnement Activé 🔄</div>
+                        <div id="recurrence-indicator" class="hidden absolute top-0 left-0 w-full bg-indigo-600 text-white text-[9px] font-black text-center py-1 uppercase pulse-recur">Abonnement Activé 🔄</div>
                         
                         <div class="p-2 bg-slate-50 flex gap-1 rounded-2xl mb-4">
                             <button onclick="setType('expense')" id="btnExp" class="flex-1 py-3 rounded-xl font-black text-[10px] uppercase bg-white border shadow-sm">Dépense</button>
@@ -101,34 +109,37 @@
 
                         <div class="space-y-4">
                             <input type="hidden" id="edit-id">
-                            <input type="text" id="desc" placeholder="Objet (ex: Loyer, Netflix...)" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-indigo-100">
+                            <input type="text" id="desc" placeholder="Objet" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-indigo-100">
                             <input type="number" id="amount" placeholder="0.00 €" class="w-full p-4 bg-slate-50 rounded-2xl font-black text-2xl border-none outline-none">
                             <div class="grid grid-cols-2 gap-2">
                                 <input type="date" id="transaction-date" class="p-4 bg-slate-50 rounded-2xl font-bold text-xs outline-none">
                                 <select id="category" class="p-4 bg-slate-50 rounded-2xl font-bold text-xs outline-none"></select>
                             </div>
                             
-                            <div class="flex items-center justify-between p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 group">
-                                <label for="is-recurring" class="text-[10px] font-black text-indigo-700 uppercase cursor-pointer">🔄 Transaction Récurrente ?</label>
-                                <input type="checkbox" id="is-recurring" onchange="updateRecurVisuel()" class="w-6 h-6 accent-indigo-600 rounded-lg cursor-pointer">
+                            <div class="flex items-center justify-between p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                                <label for="is-recurring" class="text-[10px] font-black text-indigo-700 uppercase cursor-pointer">🔄 Récurrent ?</label>
+                                <input type="checkbox" id="is-recurring" onchange="updateRecurVisuel()" class="w-6 h-6 accent-indigo-600">
+                            </div>
+
+                            <div class="p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
+                                <label class="text-[10px] font-black text-amber-700 uppercase block mb-2">💬 Commentaire (optionnel)</label>
+                                <textarea id="edit-comment" placeholder="Raison de la modification..." class="w-full p-2 bg-white rounded-xl font-bold text-xs outline-none border resize-none" rows="2"></textarea>
                             </div>
 
                             <button onclick="saveTransaction()" id="submit-btn" class="w-full py-5 rounded-3xl text-white font-black bg-indigo-600 shadow-lg text-sm uppercase mt-2">Valider</button>
-                            <button onclick="resetForm()" id="cancel-btn" class="hidden w-full py-2 text-slate-400 font-bold uppercase text-[10px]">Annuler la modification</button>
+                            <button onclick="resetForm()" id="cancel-btn" class="hidden w-full py-2 text-slate-400 font-bold uppercase text-[10px]">Annuler</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="lg:col-span-2">
-                    <!-- Barre de recherche et filtres -->
                     <div class="bg-white rounded-[2rem] shadow-sm border p-4 mb-4">
-                        <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="🔍 Rechercher (description, montant...)" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm border-none outline-none mb-3">
+                        <input type="text" id="search-input" onkeyup="applyFilters()" placeholder="🔍 Rechercher..." class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm border-none outline-none mb-3">
                         <div class="flex flex-wrap gap-2 mb-2">
-                            <span class="text-[9px] font-black text-slate-400 uppercase">Filtres:</span>
                             <button onclick="toggleFilter('type', 'expense')" class="filter-tag" data-filter="type-expense">Dépenses</button>
                             <button onclick="toggleFilter('type', 'income')" class="filter-tag" data-filter="type-income">Revenus</button>
                             <button onclick="toggleFilter('recurring', 'true')" class="filter-tag" data-filter="recurring-true">🔄 Récurrents</button>
-                            <button onclick="resetFilters()" class="text-[9px] font-bold text-rose-500 uppercase hover:underline ml-2">Réinitialiser</button>
+                            <button onclick="resetFilters()" class="text-[9px] font-bold text-rose-500 uppercase ml-2">Reset</button>
                         </div>
                         <div class="flex flex-wrap gap-1" id="category-filters"></div>
                     </div>
@@ -143,35 +154,31 @@
         </div>
     </div>
 
-    <div id="settings-modal" class="modal-overlay" style="display:none;">
-        <div class="p-8 bg-white rounded-[3rem] shadow-2xl border w-full max-w-sm mx-4">
-            <h2 class="text-xl font-black mb-6 text-center uppercase text-slate-800">Configuration</h2>
-            <div class="space-y-5">
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">💰 Solde de départ</label>
-                    <input type="number" id="setting-initial-balance" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none mt-1">
-                </div>
-                <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase ml-2">📉 Limite budget mensuel</label>
-                    <input type="number" id="setting-budget-limit" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none mt-1">
-                </div>
-                <button onclick="saveSettings()" class="w-full p-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg mt-4">Sauvegarder</button>
-                <button onclick="toggleSettingsModal(false)" class="w-full text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fermer</button>
+    <div id="subscriptions-modal" class="modal-overlay" style="display:none;">
+        <div class="p-6 bg-white rounded-[3rem] shadow-2xl border w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-xl font-black mb-4 uppercase text-center text-purple-600">📱 Mes Abonnements</h2>
+            <div class="grid grid-cols-3 gap-3 mb-6">
+                <div class="bg-purple-50 p-4 rounded-2xl text-center"><p class="text-[9px] font-black uppercase">Actifs</p><p class="text-2xl font-black text-purple-600" id="subs-count">0</p></div>
+                <div class="bg-rose-50 p-4 rounded-2xl text-center"><p class="text-[9px] font-black uppercase">Mois</p><p class="text-2xl font-black text-rose-600" id="subs-monthly">0€</p></div>
+                <div class="bg-orange-50 p-4 rounded-2xl text-center"><p class="text-[9px] font-black uppercase">An</p><p class="text-2xl font-black text-orange-600" id="subs-yearly">0€</p></div>
             </div>
+            <div id="subscriptions-list" class="space-y-3 mb-6"></div>
+            <button onclick="generateRecurringTransactions()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg mb-2">🔄 Générer pour ce mois</button>
+            <button onclick="toggleSubscriptionsModal(false)" class="w-full bg-slate-100 text-slate-600 py-3 rounded-2xl font-bold text-xs uppercase">Fermer</button>
         </div>
     </div>
 
     <div id="report-modal" class="modal-overlay" style="display:none;">
         <div class="p-6 bg-white rounded-[3rem] border w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
-            <h2 class="text-xl font-black uppercase text-center mb-4">Statistiques Mensuelles</h2>
+            <h2 class="text-xl font-black uppercase text-center mb-4">Statistiques</h2>
             <div class="overflow-y-auto space-y-6 px-2">
                 <input type="month" id="report-month-picker" onchange="generateMonthlyReport()" class="w-full p-4 bg-indigo-50 rounded-2xl font-black text-center text-indigo-600 border-none">
                 <div id="report-summary" class="grid grid-cols-3 gap-2 text-center"></div>
                 <div id="report-tops" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                 <div class="bg-slate-50 p-4 rounded-[2rem] border h-[250px]"><canvas id="reportChart"></canvas></div>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="exportToPDF()" class="bg-rose-100 text-rose-600 p-4 rounded-2xl font-black text-[10px] uppercase">Exporter PDF</button>
-                    <button onclick="exportToCSV()" class="bg-emerald-100 text-emerald-600 p-4 rounded-2xl font-black text-[10px] uppercase">Exporter CSV</button>
+                    <button onclick="exportToPDF()" class="bg-rose-100 text-rose-600 p-4 rounded-2xl font-black text-[10px] uppercase">PDF</button>
+                    <button onclick="exportToCSV()" class="bg-emerald-100 text-emerald-600 p-4 rounded-2xl font-black text-[10px] uppercase">CSV</button>
                 </div>
             </div>
             <button onclick="toggleModal(false)" class="w-full mt-4 bg-slate-900 text-white py-4 rounded-3xl font-black uppercase text-xs">Fermer</button>
@@ -180,14 +187,14 @@
 
     <div id="profile-modal" class="modal-overlay" style="display:none;">
         <div class="p-8 bg-white rounded-[3rem] shadow-2xl border w-full max-w-sm mx-4 text-center">
-            <h2 class="text-xl font-black mb-6 uppercase">Mon Profil</h2>
-            <div id="profile-preview" class="w-24 h-24 rounded-3xl bg-indigo-100 mx-auto mb-6 overflow-hidden border-4 border-indigo-50 flex items-center justify-center"></div>
+            <h2 class="text-xl font-black mb-6 uppercase">Profil</h2>
+            <div id="profile-preview" class="w-24 h-24 rounded-3xl bg-indigo-100 mx-auto mb-6 overflow-hidden flex items-center justify-center border-4 border-indigo-50"></div>
             <div class="space-y-3">
                 <input type="text" id="profile-name-input" placeholder="Pseudo" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none">
-                <label class="block w-full p-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] uppercase cursor-pointer">📷 Changer la photo
+                <label class="block w-full p-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-[10px] uppercase cursor-pointer">📷 Photo
                     <input type="file" id="profile-file-input" accept="image/*" class="hidden" onchange="previewProfileImage(event)">
                 </label>
-                <input type="password" id="new-pw" placeholder="Nouveau mot de passe" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none">
+                <input type="password" id="new-pw" placeholder="Nouveau mdp" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none">
             </div>
             <div class="grid grid-cols-2 gap-2 mt-6">
                 <button onclick="toggleProfileModal(false)" class="p-4 bg-slate-100 rounded-2xl font-bold text-xs">Annuler</button>
@@ -196,34 +203,38 @@
         </div>
     </div>
 
-    <!-- Modal Dashboard Abonnements -->
-    <div id="subscriptions-modal" class="modal-overlay" style="display:none;">
-        <div class="p-6 bg-white rounded-[3rem] shadow-2xl border w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 class="text-xl font-black mb-4 uppercase text-center text-purple-600">📱 Mes Abonnements</h2>
-            
-            <div class="grid grid-cols-3 gap-3 mb-6">
-                <div class="bg-purple-50 p-4 rounded-2xl text-center">
-                    <p class="text-[9px] font-black text-purple-600 uppercase">Actifs</p>
-                    <p class="text-2xl font-black text-purple-600" id="subs-count">0</p>
+    <div id="settings-modal" class="modal-overlay" style="display:none;">
+        <div class="p-8 bg-white rounded-[3rem] border w-full max-w-sm mx-4">
+            <h2 class="text-xl font-black mb-6 text-center uppercase">Réglages</h2>
+            <div class="space-y-5">
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase">Solde départ</label>
+                    <input type="number" id="setting-initial-balance" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none">
                 </div>
-                <div class="bg-rose-50 p-4 rounded-2xl text-center">
-                    <p class="text-[9px] font-black text-rose-600 uppercase">Mensuel</p>
-                    <p class="text-2xl font-black text-rose-600" id="subs-monthly">0€</p>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase">Limite budget</label>
+                    <input type="number" id="setting-budget-limit" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none outline-none">
                 </div>
-                <div class="bg-orange-50 p-4 rounded-2xl text-center">
-                    <p class="text-[9px] font-black text-orange-600 uppercase">Annuel</p>
-                    <p class="text-2xl font-black text-orange-600" id="subs-yearly">0€</p>
-                </div>
+                <button onclick="saveSettings()" class="w-full p-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg">Sauver</button>
+                <button onclick="toggleSettingsModal(false)" class="w-full text-[10px] font-bold text-slate-400 uppercase mt-4">Fermer</button>
             </div>
+        </div>
+    </div>
 
-            <div id="subscriptions-list" class="space-y-3 mb-6"></div>
-
-            <button onclick="generateRecurringTransactions()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg mb-2">🔄 Générer les transactions du mois</button>
-            <button onclick="toggleSubscriptionsModal(false)" class="w-full bg-slate-100 text-slate-600 py-3 rounded-2xl font-bold text-xs uppercase">Fermer</button>
+    <div id="history-modal" class="modal-overlay" style="display:none;">
+        <div class="p-6 bg-white rounded-[3rem] shadow-2xl border w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-xl font-black mb-4 uppercase text-center text-amber-600">📜 Historique des modifications</h2>
+            <div id="history-transaction-title" class="text-center mb-6 p-4 bg-slate-50 rounded-2xl">
+                <div class="font-black text-lg" id="history-tx-desc"></div>
+                <div class="text-sm text-slate-500" id="history-tx-amount"></div>
+            </div>
+            <div id="history-list" class="space-y-3 mb-6"></div>
+            <button onclick="toggleHistoryModal(false)" class="w-full bg-slate-100 text-slate-600 py-3 rounded-2xl font-bold text-xs uppercase">Fermer</button>
         </div>
     </div>
 
     <script>
+        // CONFIGURATION FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyDxBlFg_z1gWM-O9lHH0UdqLmqRyno7Eys",
             authDomain: "budget-20988.firebaseapp.com",
@@ -240,14 +251,36 @@
             income: ["Salaire", "Virement", "Cadeau", "Autre"] 
         };
 
+        // GESTION AUTH ET REALTIME
         auth.onAuthStateChanged(user => {
             if (user) {
                 const path = user.email.replace(/\./g, ',');
                 userProfile.emailPath = path;
-                db.ref(`profiles/${path}`).on('value', snap => {
-                    userProfile = { ...snap.val() || { name: user.email.split('@')[0], icon: "👤" }, emailPath: path };
+                db.ref(`profiles/${path}`).once('value').then(snap => {
+                    const profileData = snap.val();
+                    if(!profileData) {
+                        // Créer un profil par défaut pour un nouvel utilisateur
+                        const defaultProfile = { 
+                            name: user.email.split('@')[0], 
+                            icon: "👤" 
+                        };
+                        db.ref(`profiles/${path}`).set(defaultProfile);
+                        userProfile = { ...defaultProfile, emailPath: path };
+                    } else {
+                        userProfile = { ...profileData, emailPath: path };
+                    }
                     updateHeader();
+                    
+                    // Écouter les changements de profil
+                    db.ref(`profiles/${path}`).on('value', snap => {
+                        const updated = snap.val();
+                        if(updated) {
+                            userProfile = { ...updated, emailPath: path };
+                            updateHeader();
+                        }
+                    });
                 });
+                
                 document.getElementById('auth-screen').style.display = 'none';
                 document.getElementById('app-content').style.display = 'block';
                 db.ref('data').on('value', snap => {
@@ -264,44 +297,34 @@
             }
         });
 
+        // MISE À JOUR INTERFACE
         function updateUI() {
             const list = document.getElementById('transactionList');
             let tInc = 0, tExp = 0, monthExp = 0;
             const nowIso = new Date().toISOString().slice(0,7);
             list.innerHTML = "";
 
-            // Appliquer les filtres
             let filtered = transactions.filter(t => {
-                // Filtre de recherche
                 if (activeFilters.search) {
-                    const search = activeFilters.search.toLowerCase();
-                    const matchDesc = t.description.toLowerCase().includes(search);
-                    const matchAmount = Math.abs(t.amount).toString().includes(search);
-                    const matchCat = t.category.toLowerCase().includes(search);
-                    if (!matchDesc && !matchAmount && !matchCat) return false;
+                    const s = activeFilters.search.toLowerCase();
+                    if (!t.description.toLowerCase().includes(s) && !t.category.toLowerCase().includes(s)) return false;
                 }
-                // Filtre type
                 if (activeFilters.type.length > 0) {
                     if (activeFilters.type.includes('expense') && t.amount >= 0) return false;
                     if (activeFilters.type.includes('income') && t.amount < 0) return false;
                 }
-                // Filtre récurrence
-                if (activeFilters.recurring.length > 0) {
-                    if (!t.isRecurring) return false;
-                }
-                // Filtre catégorie
-                if (activeFilters.category.length > 0) {
-                    if (!activeFilters.category.includes(t.category)) return false;
-                }
+                if (activeFilters.recurring.length > 0 && !t.isRecurring) return false;
+                if (activeFilters.category.length > 0 && !activeFilters.category.includes(t.category)) return false;
                 return true;
             });
 
             filtered.forEach(t => {
                 const icon = (t.authorIcon && t.authorIcon.includes('data:image')) ? `<img src="${t.authorIcon}" class="list-avatar">` : `<span>${t.authorIcon || '👤'}</span>`;
                 const recBadge = t.isRecurring ? `<span class="recurring-badge ml-2">🔄 RÉCURRENT</span>` : "";
-
+                const historyCount = t.history && typeof t.history === 'object' ? Object.keys(t.history).length : 0;
+                const historyBadge = historyCount > 0 ? `<span class="history-badge ml-2" onclick="showHistory(${t.id})">📝 ${historyCount}</span>` : "";
                 list.innerHTML += `<tr><td class="p-4">
-                    <div class="font-black text-[13px] text-slate-700 uppercase leading-none">${t.description}${recBadge}</div>
+                    <div class="font-black text-[13px] text-slate-700 uppercase leading-none">${t.description}${recBadge}${historyBadge}</div>
                     <div class="text-[9px] text-slate-400 font-bold uppercase mt-1">${t.date} • ${icon} ${t.author} <span class="cat-tag">${t.category}</span></div>
                     </td><td class="p-4 text-right">
                     <div class="font-black text-sm ${t.amount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${t.amount.toLocaleString()}€</div>
@@ -309,7 +332,6 @@
                     </td></tr>`;
             });
 
-            // Calcul des totaux (sur TOUTES les transactions, pas juste les filtrées)
             transactions.forEach(t => {
                 if(t.amount > 0) tInc += t.amount; else tExp += Math.abs(t.amount);
                 if(t.iso && t.iso.includes(nowIso) && t.amount < 0) monthExp += Math.abs(t.amount);
@@ -318,289 +340,327 @@
             document.getElementById('totalBalance').innerText = (initialBalance + tInc - tExp).toLocaleString() + " €";
             document.getElementById('totalIncomes').innerText = tInc.toLocaleString() + " €";
             document.getElementById('totalExpenses').innerText = tExp.toLocaleString() + " €";
-
             const p = budgetLimit > 0 ? Math.min((monthExp / budgetLimit) * 100, 100) : 0;
             document.getElementById('budget-progress-bar').style.width = p + '%';
             document.getElementById('budget-text-alert').innerText = `${Math.round(monthExp).toLocaleString()} / ${budgetLimit.toLocaleString()} €`;
-            
-            // Mise à jour des filtres de catégories
             updateCategoryFilters();
         }
 
-        // --- GRAPHIQUE D'ÉVOLUTION DU SOLDE (6 mois) ---
+        // CHART EVOLUTION
         function updateEvolutionChart() {
             const now = new Date();
-            const months = [];
-            const balances = [];
-            
-            // Générer les 6 derniers mois
+            const months = [], balances = [];
             for (let i = 5; i >= 0; i--) {
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 const monthKey = d.toISOString().slice(0, 7);
-                months.push(d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }));
-                
-                // Calculer le solde à la fin de ce mois
-                let inc = 0, exp = 0;
-                transactions.forEach(t => {
-                    if (t.iso && t.iso.slice(0, 7) <= monthKey) {
-                        if (t.amount > 0) inc += t.amount;
-                        else exp += Math.abs(t.amount);
-                    }
-                });
-                balances.push(initialBalance + inc - exp);
+                months.push(d.toLocaleDateString('fr-FR', { month: 'short' }));
+                let current = initialBalance;
+                transactions.forEach(t => { if(t.iso && t.iso.slice(0, 7) <= monthKey) current += t.amount; });
+                balances.push(current);
             }
-            
             const ctx = document.getElementById('evolutionChart').getContext('2d');
             if (evolutionChart) evolutionChart.destroy();
-            
-            evolutionChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: months,
-                    datasets: [{
-                        label: 'Solde',
-                        data: balances,
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 5,
-                        pointBackgroundColor: '#6366f1',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            ticks: {
-                                callback: (value) => value.toLocaleString() + '€'
-                            }
-                        }
-                    }
-                }
-            });
+            evolutionChart = new Chart(ctx, { type: 'line', data: { labels: months, datasets: [{ data: balances, borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', fill: true, tension: 0.4 }] }, options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }});
         }
 
-        // --- RECHERCHE & FILTRES ---
-        function applyFilters() {
-            activeFilters.search = document.getElementById('search-input').value;
-            updateUI();
-        }
-
-        function toggleFilter(type, value) {
-            const key = `${type}-${value}`;
-            const btn = document.querySelector(`[data-filter="${key}"]`);
-            
-            if (activeFilters[type].includes(value)) {
-                activeFilters[type] = activeFilters[type].filter(v => v !== value);
-                btn.classList.remove('active');
-            } else {
-                activeFilters[type].push(value);
-                btn.classList.add('active');
-            }
-            updateUI();
-        }
-
-        function resetFilters() {
-            activeFilters = { type: [], recurring: [], category: [], search: "" };
-            document.getElementById('search-input').value = "";
-            document.querySelectorAll('.filter-tag').forEach(btn => btn.classList.remove('active'));
-            updateUI();
-        }
-
-        function updateCategoryFilters() {
-            const allCats = [...new Set(transactions.map(t => t.category))];
-            const container = document.getElementById('category-filters');
-            container.innerHTML = allCats.map(cat => 
-                `<button onclick="toggleFilter('category', '${cat}')" class="filter-tag" data-filter="category-${cat}">${cat}</button>`
-            ).join('');
-        }
-
-        // --- DASHBOARD ABONNEMENTS ---
+        // LOGIQUE ABONNEMENTS
         function toggleSubscriptionsModal(show) {
             document.getElementById('subscriptions-modal').style.display = show ? 'flex' : 'none';
-            if (show) updateSubscriptionsDashboard();
-        }
-
-        function updateSubscriptionsDashboard() {
-            const recurring = transactions.filter(t => t.isRecurring);
-            const monthlyTotal = recurring.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-            
-            document.getElementById('subs-count').innerText = recurring.length;
-            document.getElementById('subs-monthly').innerText = monthlyTotal.toLocaleString() + '€';
-            document.getElementById('subs-yearly').innerText = (monthlyTotal * 12).toLocaleString() + '€';
-            
-            const list = document.getElementById('subscriptions-list');
-            list.innerHTML = recurring.map(t => {
-                const icon = (t.authorIcon && t.authorIcon.includes('data:image')) ? `<img src="${t.authorIcon}" class="list-avatar">` : `<span>${t.authorIcon || '👤'}</span>`;
-                return `
-                    <div class="bg-slate-50 p-4 rounded-2xl border flex justify-between items-center">
-                        <div>
-                            <div class="font-black text-sm text-slate-700">${t.description}</div>
-                            <div class="text-[9px] text-slate-400 font-bold uppercase mt-1">${icon} ${t.author} • <span class="cat-tag">${t.category}</span></div>
-                        </div>
-                        <div class="text-right">
-                            <div class="font-black text-lg text-rose-500">${t.amount.toLocaleString()}€</div>
-                            <div class="text-[8px] text-slate-400 font-bold">${(Math.abs(t.amount) * 12).toLocaleString()}€/an</div>
-                        </div>
-                    </div>
-                `;
-            }).join('') || '<p class="text-center text-slate-400 text-sm font-bold py-8">Aucun abonnement configuré</p>';
-        }
-
-        // --- GÉNÉRATION AUTOMATIQUE DES TRANSACTIONS RÉCURRENTES ---
-        function generateRecurringTransactions() {
-            const recurring = transactions.filter(t => t.isRecurring);
-            if (recurring.length === 0) {
-                showToast("⚠️ Aucun abonnement à générer");
-                return;
+            if (show) {
+                const recurring = transactions.filter(t => t.isRecurring);
+                const monthlyTotal = recurring.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+                document.getElementById('subs-count').innerText = recurring.length;
+                document.getElementById('subs-monthly').innerText = monthlyTotal.toLocaleString() + '€';
+                document.getElementById('subs-yearly').innerText = (monthlyTotal * 12).toLocaleString() + '€';
+                document.getElementById('subscriptions-list').innerHTML = recurring.map(t => `<div class="bg-slate-50 p-4 rounded-2xl border flex justify-between"><div><div class="font-black text-sm">${t.description}</div><div class="text-[8px] uppercase text-slate-400">${t.author}</div></div><div class="font-black text-rose-500">${t.amount}€</div></div>`).join('');
             }
-            
-            const now = new Date();
-            const currentMonth = now.toISOString().slice(0, 7);
-            let generated = 0;
-            
+        }
+
+        function generateRecurringTransactions() {
+            const recurring = transactions.filter(t => t.isRecurring), now = new Date(), month = now.toISOString().slice(0, 7);
+            let gen = 0;
             recurring.forEach(t => {
-                // Vérifier si une transaction similaire existe déjà ce mois
-                const exists = transactions.some(tx => 
+                // Vérifier qu'aucune transaction non-récurrente avec le même nom n'existe déjà ce mois
+                const alreadyExists = transactions.some(tx => 
                     tx.description === t.description && 
                     tx.iso && 
-                    tx.iso.includes(currentMonth) &&
-                    tx.id !== t.id
+                    tx.iso.includes(month) && 
+                    tx.id !== t.id &&
+                    !tx.isRecurring // Important : on ne compte que les transactions générées
                 );
                 
-                if (!exists) {
-                    const newTx = {
-                        id: Date.now() + Math.random(),
-                        date: now.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
-                        iso: now.toISOString(),
-                        description: t.description,
-                        amount: t.amount,
-                        category: t.category,
-                        author: userProfile.name,
-                        authorIcon: userProfile.icon,
-                        isRecurring: false
+                if (!alreadyExists) {
+                    const n = { 
+                        id: Date.now() + Math.random(), 
+                        date: now.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}), 
+                        iso: now.toISOString(), 
+                        description: t.description, 
+                        amount: t.amount, 
+                        category: t.category, 
+                        author: userProfile.name, 
+                        authorIcon: userProfile.icon, 
+                        isRecurring: false,
+                        generatedFrom: t.id // Traçabilité
                     };
-                    db.ref(`data/transactions/${newTx.id}`).set(newTx);
-                    generated++;
+                    db.ref(`data/transactions/${n.id}`).set(n); 
+                    gen++;
                 }
             });
-            
-            if (generated > 0) {
-                showToast(`✅ ${generated} transaction(s) générée(s)`);
-                toggleSubscriptionsModal(false);
-            } else {
-                showToast("ℹ️ Toutes les transactions du mois existent déjà");
-            }
+            showToast(gen > 0 ? `✓ ${gen} transaction${gen > 1 ? 's' : ''} générée${gen > 1 ? 's' : ''}` : "✓ Déjà à jour");
         }
 
-        // --- LOGIQUE RÉCURRENCE ---
-        function updateRecurVisuel() {
-            const isRec = document.getElementById('is-recurring').checked;
-            document.getElementById('recurrence-indicator').classList.toggle('hidden', !isRec);
-        }
-
+        // SAUVEGARDE TRANSACTION AVEC HISTORIQUE
         function saveTransaction() {
-            const d = document.getElementById('desc').value, a = parseFloat(document.getElementById('amount').value),
-                  dt = document.getElementById('transaction-date').value, id = document.getElementById('edit-id').value,
-                  isRec = document.getElementById('is-recurring').checked;
+            const d = document.getElementById('desc').value, a = parseFloat(document.getElementById('amount').value), dt = document.getElementById('transaction-date').value, id = document.getElementById('edit-id').value, isRec = document.getElementById('is-recurring').checked, comment = document.getElementById('edit-comment').value;
             if(!d || isNaN(a) || !dt) return;
-            const tx = {
-                id: id ? parseInt(id) : Date.now(),
-                date: new Date(dt+'T12:00:00').toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
-                iso: new Date(dt+'T12:00:00').toISOString(),
-                description: d,
-                amount: currentType === 'expense' ? -Math.abs(a) : Math.abs(a),
-                category: document.getElementById('category').value,
-                author: userProfile.name,
-                authorIcon: userProfile.icon,
-                isRecurring: isRec
+            
+            const isEdit = !!id;
+            const txId = isEdit ? parseInt(id) : Date.now();
+            
+            // Récupérer l'ancienne transaction si c'est une modification
+            let history = {};
+            let originalAuthor = userProfile.name;
+            let originalAuthorIcon = userProfile.icon;
+            
+            if (isEdit) {
+                const oldTx = transactions.find(x => x.id === txId);
+                if (oldTx) {
+                    // Convertir l'historique en objet si c'est un tableau ou null
+                    history = oldTx.history && typeof oldTx.history === 'object' && !Array.isArray(oldTx.history) ? oldTx.history : {};
+                    originalAuthor = oldTx.author;
+                    originalAuthorIcon = oldTx.authorIcon;
+                    
+                    // Ajouter l'état actuel à l'historique avant modification
+                    const newAmount = currentType === 'expense' ? -Math.abs(a) : Math.abs(a);
+                    const newDate = new Date(dt+'T12:00:00').toLocaleDateString('fr-FR', {day:'2-digit', month:'short'});
+                    
+                    const historyKey = Date.now();
+                    history[historyKey] = {
+                        date: new Date().toISOString(),
+                        editor: userProfile.name,
+                        editorIcon: userProfile.icon,
+                        comment: comment || "Modification",
+                        changes: {
+                            description: { old: oldTx.description, new: d },
+                            amount: { old: oldTx.amount, new: newAmount },
+                            category: { old: oldTx.category, new: document.getElementById('category').value },
+                            date: { old: oldTx.date, new: newDate }
+                        }
+                    };
+                }
+            }
+            
+            const tx = { 
+                id: txId, 
+                date: new Date(dt+'T12:00:00').toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}), 
+                iso: new Date(dt+'T12:00:00').toISOString(), 
+                description: d, 
+                amount: currentType === 'expense' ? -Math.abs(a) : Math.abs(a), 
+                category: document.getElementById('category').value, 
+                author: originalAuthor,
+                authorIcon: originalAuthorIcon,
+                isRecurring: isRec,
+                history: history,
+                lastModified: isEdit ? new Date().toISOString() : null,
+                lastModifiedBy: isEdit ? userProfile.name : null
             };
-            db.ref(`data/transactions/${tx.id}`).set(tx).then(() => { showToast("SÉCURISÉ"); resetForm(); });
+            
+            db.ref(`data/transactions/${tx.id}`).set(tx).then(() => { showToast(isEdit ? "MODIFIÉ ✓" : "SÉCURISÉ"); resetForm(); });
         }
 
-        function editTx(id) {
-            const t = transactions.find(x => x.id === id); if(!t) return;
-            document.getElementById('edit-id').value = t.id;
-            document.getElementById('desc').value = t.description;
-            document.getElementById('amount').value = Math.abs(t.amount);
-            document.getElementById('transaction-date').value = t.iso.split('T')[0];
-            document.getElementById('is-recurring').checked = t.isRecurring || false;
-            updateRecurVisuel();
-            setType(t.amount < 0 ? 'expense' : 'income');
-            document.getElementById('category').value = t.category;
-            document.getElementById('submit-btn').innerText = "SAUVEGARDER";
-            document.getElementById('cancel-btn').classList.remove('hidden');
-        }
-
-        function resetForm() {
-            document.getElementById('edit-id').value = ""; document.getElementById('desc').value = ""; document.getElementById('amount').value = ""; 
-            document.getElementById('is-recurring').checked = false; updateRecurVisuel();
-            document.getElementById('submit-btn').innerText = "VALIDER"; document.getElementById('cancel-btn').classList.add('hidden');
-        }
-
-        // --- EXPORTS (PDF & CSV) ---
-        function exportToCSV() {
-            const picker = document.getElementById('report-month-picker').value || new Date().toISOString().slice(0,7);
-            const filtered = transactions.filter(t => t.iso.includes(picker));
-            let csv = "\uFEFFDate;Objet;Cat;Auteur;Montant;Recurrence\n";
-            filtered.forEach(t => { csv += `${t.date};${t.description};${t.category};${t.author};${t.amount};${t.isRecurring?'OUI':'NON'}\n`; });
-            const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-            link.download = `Budget_${picker}.csv`; link.click();
-        }
-
-        function exportToPDF() {
-            const { jsPDF } = window.jspdf; const doc = new jsPDF();
-            const picker = document.getElementById('report-month-picker').value || new Date().toISOString().slice(0,7);
-            doc.setFontSize(18); doc.text(`Rapport Budget - ${picker}`, 14, 20);
-            const rows = transactions.filter(t => t.iso.includes(picker)).map(t => [t.date, t.description, t.category, t.author, `${t.amount}€`, t.isRecurring?'OUI':'NON']);
-            doc.autoTable({ startY: 30, head: [['Date', 'Objet', 'Catégorie', 'Par', 'Montant', 'Réc.']], body: rows, theme: 'striped' });
-            doc.save(`Rapport_${picker}.pdf`);
-        }
-
-        // --- ANALYSE & TOPS ---
         function generateMonthlyReport() {
-            const picker = document.getElementById('report-month-picker').value || new Date().toISOString().slice(0,7);
-            const filtered = transactions.filter(t => t.iso.includes(picker));
+            const p = document.getElementById('report-month-picker').value, filtered = transactions.filter(t => t.iso.includes(p));
             let inc = 0, exp = 0, catData = {};
-            const sortedExp = [...filtered].filter(t => t.amount < 0).sort((a,b) => a.amount - b.amount).slice(0,3);
-            const sortedInc = [...filtered].filter(t => t.amount > 0).sort((a,b) => b.amount - a.amount).slice(0,3);
             filtered.forEach(t => { if(t.amount > 0) inc += t.amount; else { exp += Math.abs(t.amount); catData[t.category] = (catData[t.category] || 0) + Math.abs(t.amount); }});
             
-            document.getElementById('report-summary').innerHTML = `<div class="bg-emerald-50 p-3 rounded-2xl"><p class="text-[8px] font-black text-emerald-600">IN</p><p class="font-black text-xs">+${inc}€</p></div><div class="bg-rose-50 p-3 rounded-2xl"><p class="text-[8px] font-black text-rose-600">OUT</p><p class="font-black text-xs">-${exp}€</p></div><div class="bg-indigo-50 p-3 rounded-2xl"><p class="text-[8px] font-black text-indigo-600">NET</p><p class="font-black text-xs">${inc-exp}€</p></div>`;
-            document.getElementById('report-tops').innerHTML = `<div class="bg-white p-4 rounded-3xl border shadow-sm"><p class="text-[8px] font-black text-rose-500 uppercase mb-2">Tops Dépenses</p>${sortedExp.map(t => `<div class="flex justify-between text-[10px] font-bold"><span>${t.description}</span><span class="text-rose-500">${t.amount}€</span></div>`).join('') || 'Néant'}</div><div class="bg-white p-4 rounded-3xl border shadow-sm"><p class="text-[8px] font-black text-emerald-500 uppercase mb-2">Tops Revenus</p>${sortedInc.map(t => `<div class="flex justify-between text-[10px] font-bold"><span>${t.description}</span><span class="text-emerald-500">${t.amount}€</span></div>`).join('') || 'Néant'}</div>`;
+            // Summary
+            document.getElementById('report-summary').innerHTML = `<div class="bg-emerald-50 p-2 rounded-xl text-[10px] font-bold">+${inc}€</div><div class="bg-rose-50 p-2 rounded-xl text-[10px] font-bold">-${exp}€</div><div class="bg-indigo-50 p-2 rounded-xl text-[10px] font-bold">${inc-exp}€</div>`;
             
+            // Top dépenses et revenus
+            const expenses = filtered.filter(t => t.amount < 0).sort((a,b) => a.amount - b.amount).slice(0, 5);
+            const incomes = filtered.filter(t => t.amount > 0).sort((a,b) => b.amount - a.amount).slice(0, 5);
+            
+            let topsHtml = '';
+            
+            // Top dépenses
+            if(expenses.length > 0) {
+                topsHtml += `<div class="bg-rose-50 p-4 rounded-2xl border"><h4 class="text-[9px] font-black text-rose-600 uppercase mb-2">🔻 Top Dépenses</h4><div class="space-y-1">`;
+                expenses.forEach(t => {
+                    topsHtml += `<div class="flex justify-between text-[10px]"><span class="font-bold truncate">${t.description}</span><span class="text-rose-600 font-black">${t.amount}€</span></div>`;
+                });
+                topsHtml += `</div></div>`;
+            }
+            
+            // Top revenus
+            if(incomes.length > 0) {
+                topsHtml += `<div class="bg-emerald-50 p-4 rounded-2xl border"><h4 class="text-[9px] font-black text-emerald-600 uppercase mb-2">🔺 Top Revenus</h4><div class="space-y-1">`;
+                incomes.forEach(t => {
+                    topsHtml += `<div class="flex justify-between text-[10px]"><span class="font-bold truncate">${t.description}</span><span class="text-emerald-600 font-black">+${t.amount}€</span></div>`;
+                });
+                topsHtml += `</div></div>`;
+            }
+            
+            document.getElementById('report-tops').innerHTML = topsHtml;
+            
+            // Chart
             const ctx = document.getElementById('reportChart').getContext('2d');
             if(reportChart) reportChart.destroy();
             reportChart = new Chart(ctx, { type: 'doughnut', data: { labels: Object.keys(catData), datasets: [{ data: Object.values(catData), backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#ec4899'], borderWidth: 0 }] }, options: { maintainAspectRatio: false }});
         }
 
-        // --- UTILS ---
-        function toggleSettingsModal(s) { document.getElementById('settings-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('setting-initial-balance').value = initialBalance; document.getElementById('setting-budget-limit').value = budgetLimit; } }
-        function saveSettings() { db.ref('data').update({ initialBalance: parseFloat(document.getElementById('setting-initial-balance').value)||0, budgetLimit: parseFloat(document.getElementById('setting-budget-limit').value)||0 }).then(() => { showToast("RÉGLAGES SAUVÉS"); toggleSettingsModal(false); }); }
         function setType(t) { currentType = t; document.getElementById('category').innerHTML = cats[t].map(c => `<option value="${c}">${c}</option>`).join(''); document.getElementById('btnExp').className = t==='expense'?'flex-1 py-3 bg-white border rounded-xl font-black text-[10px] uppercase shadow-sm':'flex-1 py-3 text-slate-400 font-black text-[10px] uppercase'; document.getElementById('btnInc').className = t==='income'?'flex-1 py-3 bg-white border rounded-xl font-black text-[10px] uppercase shadow-sm':'flex-1 py-3 text-slate-400 font-black text-[10px] uppercase'; }
-        function toggleModal(s) { document.getElementById('report-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('report-month-picker').value = new Date().toISOString().slice(0,7); generateMonthlyReport(); } }
-        function deleteTx(id) { if(confirm("Supprimer ?")) db.ref(`data/transactions/${id}`).remove(); }
-        function showToast(m) { const t = document.createElement('div'); t.className = "fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-full text-[9px] font-black z-[99999] tracking-widest"; t.innerText = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2000); }
+        function applyFilters() { activeFilters.search = document.getElementById('search-input').value; updateUI(); }
+        function toggleFilter(type, value) { const key = `${type}-${value}`, btn = document.querySelector(`[data-filter="${key}"]`); if (activeFilters[type].includes(value)) { activeFilters[type] = activeFilters[type].filter(v => v !== value); btn.classList.remove('active'); } else { activeFilters[type].push(value); btn.classList.add('active'); } updateUI(); }
+        function resetFilters() { activeFilters = { type: [], recurring: [], category: [], search: "" }; document.getElementById('search-input').value = ""; document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active')); updateUI(); }
+        function updateCategoryFilters() { const allCats = [...new Set(transactions.map(t => t.category))]; document.getElementById('category-filters').innerHTML = allCats.map(c => `<button onclick="toggleFilter('category', '${c}')" class="filter-tag" data-filter="category-${c}">${c}</button>`).join(''); }
+        function showToast(m) { 
+            const t = document.createElement('div'); 
+            t.className = "fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-sm font-black z-[99999] shadow-2xl animate-bounce"; 
+            t.style.maxWidth = "90vw";
+            t.style.textAlign = "center";
+            t.innerText = m; 
+            document.body.appendChild(t); 
+            setTimeout(() => {
+                t.style.opacity = "0";
+                t.style.transition = "opacity 0.3s";
+                setTimeout(() => t.remove(), 300);
+            }, 2500); 
+        }
         function updateHeader() { document.getElementById('current-user-display').innerText = userProfile.name; document.getElementById('user-icon-badge').innerHTML = userProfile.icon.includes('data:image') ? `<img src="${userProfile.icon}">` : userProfile.icon; }
-        function handleLogin() { auth.signInWithEmailAndPassword(document.getElementById('email-input').value, document.getElementById('password-input').value); }
+        function handleLogin() { auth.signInWithEmailAndPassword(document.getElementById('email-input').value, document.getElementById('password-input').value).catch(e => alert(e.message)); }
         function logout() { auth.signOut().then(() => location.reload()); }
-        function toggleProfileModal(s) { document.getElementById('profile-modal').style.display = s ? 'flex' : 'none'; if(s) document.getElementById('profile-name-input').value = userProfile.name; }
-        function previewProfileImage(e) { const reader = new FileReader(); reader.onload = () => { document.getElementById('profile-preview').innerHTML = `<img src="${reader.result}" class="w-full h-full object-cover">`; userProfile.temp = reader.result; }; reader.readAsDataURL(e.target.files[0]); }
-        function saveProfile() {
-            const up = { name: document.getElementById('profile-name-input').value };
-            if(userProfile.temp) up.icon = userProfile.temp;
-            db.ref(`profiles/${userProfile.emailPath}`).update(up).then(() => {
-                const pw = document.getElementById('new-pw').value; if(pw) auth.currentUser.updatePassword(pw);
-                toggleProfileModal(false); showToast("PROFIL OK");
+        function toggleModal(s) { document.getElementById('report-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('report-month-picker').value = new Date().toISOString().slice(0,7); generateMonthlyReport(); } }
+        function toggleSettingsModal(s) { document.getElementById('settings-modal').style.display = s ? 'flex' : 'none'; if(s) { document.getElementById('setting-initial-balance').value = initialBalance; document.getElementById('setting-budget-limit').value = budgetLimit; } }
+        function saveSettings() { db.ref('data').update({ initialBalance: parseFloat(document.getElementById('setting-initial-balance').value)||0, budgetLimit: parseFloat(document.getElementById('setting-budget-limit').value)||0 }).then(() => { showToast("SAUVÉ"); toggleSettingsModal(false); }); }
+        function toggleProfileModal(s) { 
+            document.getElementById('profile-modal').style.display = s ? 'flex' : 'none'; 
+            if(s) {
+                document.getElementById('profile-name-input').value = userProfile.name || "";
+                document.getElementById('new-pw').value = "";
+                const preview = document.getElementById('profile-preview');
+                if(userProfile.icon && userProfile.icon.includes('data:image')) {
+                    preview.innerHTML = `<img src="${userProfile.icon}" class="w-full h-full object-cover">`;
+                } else {
+                    preview.innerHTML = `<span class="text-5xl">${userProfile.icon || '👤'}</span>`;
+                }
+            }
+        }
+        function previewProfileImage(e) { 
+            const reader = new FileReader(); 
+            reader.onload = () => { 
+                document.getElementById('profile-preview').innerHTML = `<img src="${reader.result}" class="w-full h-full object-cover">`; 
+                userProfile.temp = reader.result; 
+            }; 
+            if(e.target.files && e.target.files[0]) {
+                reader.readAsDataURL(e.target.files[0]); 
+            }
+        }
+        function saveProfile() { 
+            const up = { name: document.getElementById('profile-name-input').value }; 
+            if(userProfile.temp) up.icon = userProfile.temp; 
+            
+            const newPw = document.getElementById('new-pw').value;
+            
+            db.ref(`profiles/${userProfile.emailPath}`).update(up).then(() => { 
+                if(newPw && newPw.length >= 6) {
+                    auth.currentUser.updatePassword(newPw).then(() => {
+                        showToast("PROFIL & MDP SAUVÉS");
+                        document.getElementById('new-pw').value = "";
+                        toggleProfileModal(false);
+                    }).catch(err => {
+                        showToast("Profil OK - Erreur MDP: " + err.message);
+                        toggleProfileModal(false);
+                    });
+                } else {
+                    showToast("PROFIL SAUVÉ");
+                    toggleProfileModal(false);
+                }
+            });
+        }
+        function deleteTx(id) { if(confirm("Supprimer ?")) db.ref(`data/transactions/${id}`).remove(); }
+        function editTx(id) { const t = transactions.find(x => x.id === id); if(!t) return; document.getElementById('edit-id').value = t.id; document.getElementById('desc').value = t.description; document.getElementById('amount').value = Math.abs(t.amount); document.getElementById('transaction-date').value = t.iso.split('T')[0]; document.getElementById('is-recurring').checked = t.isRecurring || false; document.getElementById('edit-comment').value = ""; updateRecurVisuel(); setType(t.amount < 0 ? 'expense' : 'income'); document.getElementById('category').value = t.category; document.getElementById('submit-btn').innerText = "SAUVER"; document.getElementById('cancel-btn').classList.remove('hidden'); }
+        function resetForm() { document.getElementById('edit-id').value = ""; document.getElementById('desc').value = ""; document.getElementById('amount').value = ""; document.getElementById('is-recurring').checked = false; document.getElementById('edit-comment').value = ""; updateRecurVisuel(); document.getElementById('submit-btn').innerText = "VALIDER"; document.getElementById('cancel-btn').classList.add('hidden'); }
+        function updateRecurVisuel() { document.getElementById('recurrence-indicator').classList.toggle('hidden', !document.getElementById('is-recurring').checked); }
+        function exportToCSV() { const p = document.getElementById('report-month-picker').value, f = transactions.filter(t => t.iso.includes(p)); let csv = "\uFEFFDate;Objet;Cat;Montant\n"; f.forEach(t => { csv += `${t.date};${t.description};${t.category};${t.amount}\n`; }); const l = document.createElement("a"); l.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); l.download = `Budget_${p}.csv`; l.click(); }
+        function exportToPDF() { const { jsPDF } = window.jspdf; const doc = new jsPDF(), p = document.getElementById('report-month-picker').value; doc.text(`Budget - ${p}`, 14, 20); const rows = transactions.filter(t => t.iso.includes(p)).map(t => [t.date, t.description, t.category, `${t.amount}€`]); doc.autoTable({ startY: 30, head: [['Date', 'Objet', 'Cat', 'Montant']], body: rows }); doc.save(`Budget_${p}.pdf`); }
+
+        function showHistory(txId) {
+            const tx = transactions.find(t => t.id === txId);
+            if (!tx) return;
+            
+            document.getElementById('history-tx-desc').innerText = tx.description;
+            document.getElementById('history-tx-amount').innerText = `${tx.amount}€ • ${tx.category}`;
+            
+            const historyList = document.getElementById('history-list');
+            
+            if (!tx.history || typeof tx.history !== 'object' || Object.keys(tx.history).length === 0) {
+                historyList.innerHTML = '<div class="text-center text-slate-400 text-sm p-8">Aucune modification enregistrée</div>';
+            } else {
+                // Convertir l'objet history en tableau et trier par date
+                const historyArray = Object.entries(tx.history).map(([key, value]) => ({
+                    key: key,
+                    ...value
+                })).sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                historyList.innerHTML = historyArray.map((h, index) => {
+                    const icon = (h.editorIcon && h.editorIcon.includes('data:image')) ? `<img src="${h.editorIcon}" class="w-6 h-6 rounded-full object-cover">` : `<span class="text-xl">${h.editorIcon || '👤'}</span>`;
+                    const date = new Date(h.date);
+                    const dateStr = date.toLocaleDateString('fr-FR', {day: '2-digit', month: 'short', year: 'numeric'});
+                    const timeStr = date.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+                    
+                    let changesHtml = '<div class="grid grid-cols-1 gap-2 mt-2">';
+                    if (h.changes && h.changes.description && h.changes.description.old !== h.changes.description.new) {
+                        changesHtml += `<div class="text-[10px]"><span class="text-slate-400">Description:</span> <span class="line-through text-rose-400">${h.changes.description.old}</span> → <span class="text-emerald-600 font-bold">${h.changes.description.new}</span></div>`;
+                    }
+                    if (h.changes && h.changes.amount && h.changes.amount.old !== h.changes.amount.new) {
+                        changesHtml += `<div class="text-[10px]"><span class="text-slate-400">Montant:</span> <span class="line-through text-rose-400">${h.changes.amount.old}€</span> → <span class="text-emerald-600 font-bold">${h.changes.amount.new}€</span></div>`;
+                    }
+                    if (h.changes && h.changes.category && h.changes.category.old !== h.changes.category.new) {
+                        changesHtml += `<div class="text-[10px]"><span class="text-slate-400">Catégorie:</span> <span class="line-through text-rose-400">${h.changes.category.old}</span> → <span class="text-emerald-600 font-bold">${h.changes.category.new}</span></div>`;
+                    }
+                    if (h.changes && h.changes.date && h.changes.date.old !== h.changes.date.new) {
+                        changesHtml += `<div class="text-[10px]"><span class="text-slate-400">Date:</span> <span class="line-through text-rose-400">${h.changes.date.old}</span> → <span class="text-emerald-600 font-bold">${h.changes.date.new}</span></div>`;
+                    }
+                    changesHtml += '</div>';
+                    
+                    return `
+                        <div class="bg-slate-50 p-4 rounded-2xl border">
+                            <div class="flex items-start gap-3">
+                                <div class="flex-shrink-0">${icon}</div>
+                                <div class="flex-1">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div>
+                                            <div class="font-black text-sm">${h.editor}</div>
+                                            <div class="text-[9px] text-slate-400 uppercase">${dateStr} à ${timeStr}</div>
+                                        </div>
+                                        <span class="text-[8px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-bold">Modif #${index + 1}</span>
+                                    </div>
+                                    ${h.comment ? `<div class="bg-white p-2 rounded-xl text-xs italic text-slate-600 mb-2">"${h.comment}"</div>` : ''}
+                                    ${changesHtml}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            toggleHistoryModal(true);
+        }
+
+        function toggleHistoryModal(show) {
+            document.getElementById('history-modal').style.display = show ? 'flex' : 'none';
+        }
+
+        // ENREGISTREMENT SERVICE WORKER POUR PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker enregistré:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('❌ Erreur Service Worker:', error);
+                    });
             });
         }
 
